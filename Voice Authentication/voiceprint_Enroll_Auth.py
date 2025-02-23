@@ -20,6 +20,11 @@ def enroll_user(user_name, num_samples=3):
             "hashed_words": hashed_words
         })
 
+    # If all hashed words are not the same, ask the user to re-enroll
+    if len(set([sample["hashed_words"] for sample in enrollment_data])) != 1:
+        print("Enrollment failed. Please try again.")
+        return
+
 
     # Save user voiceprint
     with open(f"{user_name}_voiceprint.pkl", "wb") as f:
@@ -68,10 +73,14 @@ def authenticate_user(user_name, threshold=20):
         print("Authentication failed.")
         return False
     
-    
-#enroll_user("Krabby")
+
+USER_TO_ENROLL = "Krabby"
+USER_TO_AUTH = "Krabby"
+
+# print(f"Enrolling now {USER_TO_ENROLL} now")
+# enroll_user(USER_TO_ENROLL)
 
 
-#time.sleep(3)
-print("Authenticating now")
-authenticate_user("Krabby")
+time.sleep(2)
+print(f"Authenticating {USER_TO_AUTH} now")
+authenticate_user(USER_TO_AUTH)
