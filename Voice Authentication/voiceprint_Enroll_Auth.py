@@ -20,9 +20,14 @@ def enroll_user(user_name, num_samples=3):
             "hashed_words": hashed_words
         })
 
+    # Delete the wav files
+    for i in range(num_samples):
+        filename = f"{user_name}_sample{i}.wav"
+        os.remove(filename)
+
     # If all hashed words are not the same, ask the user to re-enroll
     if len(set([sample["hashed_words"] for sample in enrollment_data])) != 1:
-        print("Enrollment failed. Please try again.")
+        print("Enrollment failed. Please try again with the same word.")
         return
 
 
@@ -32,10 +37,7 @@ def enroll_user(user_name, num_samples=3):
 
     print(f"Enrollment complete for {user_name}.")
 
-    # Delete the wav files
-    for i in range(num_samples):
-        filename = f"{user_name}_sample{i}.wav"
-        os.remove(filename)
+
         
 
 def authenticate_user(user_name, threshold=20):
@@ -74,13 +76,13 @@ def authenticate_user(user_name, threshold=20):
         return False
     
 
-USER_TO_ENROLL = "Krabby"
-USER_TO_AUTH = "Krabby"
+if __name__ == "__main__":
+    USER_TO_ENROLL = "Krabby"
+    USER_TO_AUTH = "Krabby"
 
-# print(f"Enrolling now {USER_TO_ENROLL} now")
-# enroll_user(USER_TO_ENROLL)
+    print(f"Enrolling now {USER_TO_ENROLL} now")
+    enroll_user(USER_TO_ENROLL)
 
-
-time.sleep(2)
-print(f"Authenticating {USER_TO_AUTH} now")
-authenticate_user(USER_TO_AUTH)
+    time.sleep(2)
+    print(f"Authenticating {USER_TO_AUTH} now")
+    authenticate_user(USER_TO_AUTH)
