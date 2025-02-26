@@ -1,435 +1,514 @@
-import time
 import cv2
-from deepface import DeepFace
-import os
 import numpy as np
+import os
 import pickle
-
-# Directory to store saved faces
-SAVED_FACES_DIR = "saved_faces"
-EMBEDDINGS_FILE = "face_embeddings.pkl"
-
-# Create the directory if it doesn't exist
-if not os.path.exists(SAVED_FACES_DIR):
-    os.makedirs(SAVED_FACES_DIR)
-
-def load_embeddings():
-    if os.path.exists(EMBEDDINGS_FILE):
-        with open(EMBEDDINGS_FILE, 'rb') as f:
-            return pickle.load(f)
-    return {}
-
-def save_embeddings(embeddings):
-    with open(EMBEDDINGS_FILE, 'wb') as f:
-        pickle.dump(embeddings, f)
-
-def capture_face():
-    cap = cv2.VideoCapture(0)
-
-    if not cap.isOpened():
-        print("Error: Could not open webcam.")
-        return
-
-    print("Press 's' to capture and exit.")
-
-    saved_frame = None
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: Could not read frame from webcam.")
-            break
-
-        cv2.imshow("Capture Face - Press 's' to Save", frame)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('s') or key == ord('S'):
-            # Store the last frame in memory
-            saved_frame = frame.copy()
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-    # Once the window is closed, THEN ask for the name and save if needed
-    if saved_frame is not None:
-        name = input("Enter the name for the face: ").strip()
-        if name:
-            image_path = os.path.join(SAVED_FACES_DIR, f"{name}.jpg")
-            cv2.imwrite(image_path, saved_frame)
-            print(f"Face saved as {image_path}")
-        else:
-            print("Name cannot be empty. Face not saved.")
-
-def regenerate_embeddings():
-    """Regenerate embeddings for all saved faces"""
-    saved_faces = load_saved_faces()
-    if not saved_faces:
-        print("No saved faces found. Please save some faces first.")
-        return
-
-    new_embeddings = {}
-    total_faces = len(saved_faces)
-    processed = 0
-
-    print(f"Found {total_faces} faces. Starting embedding generation...")
-    
-    for name, image_path in saved_faces.items():
-        try:
-            processed += 1
-            print(f"Processing {name} ({processed}/{total_faces})...")
-            
-            # Read the image and generate embedding
-            img = cv2.imread(image_path)
-            embedding_obj = DeepFace.represent(img, model_name="VGG-Face", enforce_detection=False)[0]
-            # Store just the embedding array, not the whole object
-            new_embeddings[name] = embedding_obj['embedding'] if isinstance(embedding_obj, dict) else embedding_obj
-            print(f"✓ Successfully generated embedding for {name}")
-            
-        except Exception as e:
-            print(f"✗ Error generating embedding for {name}: {e}")
-    
-    if new_embeddings:
-        save_embeddings(new_embeddings)
-        print(f"\nSuccessfully generated and saved {len(new_embeddings)} embeddings")
-    else:
-        print("\nNo embeddings were generated")
-
-def load_saved_faces():
-    # Load saved faces and their names from the directory
-    saved_faces = {}
-    for file in os.listdir(SAVED_FACES_DIR):
-        if file.endswith(".jpg"):
-            name = file.split(".")[0]
-            saved_faces[name] = os.path.join(SAVED_FACES_DIR, file)
-
-    # Sort the dictionary by keys (names) in alphabetical order (Debugging purpose)
-    sorted_faces = dict(sorted(saved_faces.items()))
-    return sorted_faces
-
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications.vgg16 import preprocess_input, VGG16
+from tensorflow.keras.models import Model
+import tensorflow as tf
+from scipy.spatial.distance import cosine
 import time
+import mediapipe as mp
 
-def cosine_similarity(embedding1, embedding2):
-    """
-    Calculate cosine similarity between two embeddings - this is what DeepFace uses internally
-    """
-    a = np.array(embedding1).flatten()
-    b = np.array(embedding2).flatten()
-    
-    cosine = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
-    # Convert to distance (0 to 1, where 0 means identical)
-    distance = 1 - cosine
-    return distance
+# Replace the VGG model loading with TFLite
+def get_tflite_model(model_path='vgg16_feature_extractor.tflite'):
+    """Load the TFLite model"""
+    print("Loading TFLite model...")
+    interpreter = tf.lite.Interpreter(model_path=model_path)
+    interpreter.allocate_tensors()
+    print("Model loaded successfully.")
+    return interpreter
 
-def compare_embeddings(embedding1, embedding2, threshold=0.4):  # Changed threshold to match DeepFace
-    print("\nDebug - Comparing embeddings:")
-    print(f"Threshold: {threshold}")
-    
-    # Convert embeddings to numpy arrays if they aren't already
-    emb1 = np.array(embedding1['embedding'] if isinstance(embedding1, dict) else embedding1)
-    emb2 = np.array(embedding2['embedding'] if isinstance(embedding2, dict) else embedding2)
-    
-    # Calculate cosine distance (same as DeepFace)
-    distance = cosine_similarity(emb1, emb2)
-    match = distance < threshold
-    
-    print(f"Cosine distance: {distance:.4f}")
-    print(f"Is match? {match} {'(Good match!)' if distance < 0.3 else '(Weak match)' if match else ''}")
-    
-    return match, distance
+def get_vgg_model():
+    """Load and configure the VGG Face model"""
+    print("Loading VGG16 model...")
+    base_model = VGG16(weights='imagenet')
+    model = Model(inputs=base_model.input, outputs=base_model.layers[-2].output)
+    print("VGG16 model loaded successfully.")
+    return model
 
-def get_confidence_score(distance, method="embedding"):
-    """
-    Convert distance to confidence score - now using same scale for both methods
-    """
-    # Both methods now use same scale (0-1 distance)
-    return round((1 - distance) * 100, 2)
+# Add MediaPipe initialization
+mp_face_detection = mp.solutions.face_detection
+mp_drawing = mp.solutions.drawing_utils
 
-def capture_and_compare():
+def detect_and_extract_face(img_path, required_size=(224, 224), debug=False):
+    """Detect face in image and extract it using MediaPipe"""
+    # Read image
+    img = cv2.imread(img_path)
+    if img is None:
+        raise ValueError("Could not load image")
+    
+    # Convert to RGB (MediaPipe requires RGB input)
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    
+    # Try both model selections if needed
+    detection_params = [
+        {'model_selection': 0, 'min_detection_confidence': 0.5},  # Close-range
+        {'model_selection': 1, 'min_detection_confidence': 0.5}   # Full-range
+    ]
+    
+    face = None
+    for params in detection_params:
+        with mp_face_detection.FaceDetection(**params) as face_detection:
+            results = face_detection.process(img_rgb)
+            
+            if results.detections:
+                if len(results.detections) > 1:
+                    if debug:
+                        print(f"Warning: Multiple faces detected ({len(results.detections)}), using the first one")
+                
+                # Get face bounding box
+                detection = results.detections[0]
+                bbox = detection.location_data.relative_bounding_box
+                
+                # Convert relative coordinates to absolute
+                h, w, _ = img.shape
+                x = max(0, int(bbox.xmin * w))
+                y = max(0, int(bbox.ymin * h))
+                width = min(int(bbox.width * w), w - x)
+                height = min(int(bbox.height * h), h - y)
+                
+                # Add padding (20% on each side)
+                padding_x = int(width * 0.2)
+                padding_y = int(height * 0.2)
+                
+                # Calculate padded coordinates with bounds checking
+                x1 = max(0, x - padding_x)
+                y1 = max(0, y - padding_y)
+                x2 = min(w, x + width + padding_x)
+                y2 = min(h, y + height + padding_y)
+                
+                if debug:
+                    # Draw bounding box on debug image
+                    debug_img = img.copy()
+                    cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.imshow("Detected Face", debug_img)
+                    cv2.waitKey(1000)
+                    cv2.destroyAllWindows()
+                
+                # Extract face with padding
+                face = img[y1:y2, x1:x2]
+                # Resize to required size
+                face = cv2.resize(face, required_size)
+                break
+    
+    if face is None:
+        raise ValueError("No face detected in the image")
+    
+    return face
+
+def preprocess_face_image(img_path, target_size=(224, 224)):
+    """Preprocess image for VGG model input"""
+    try:
+        # Detect and extract face first without debug
+        face = detect_and_extract_face(img_path, target_size)
+        
+        # Convert from BGR to RGB
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+        
+        # Convert to float32
+        face = face.astype('float32')
+        
+        # Expand dimensions and preprocess
+        face = np.expand_dims(face, axis=0)
+        face = preprocess_input(face)
+        
+        return face
+    except ValueError as e:
+        raise ValueError(f"Face preprocessing failed: {str(e)}")
+
+def get_face_embedding(interpreter, img_path):
+    """Get embedding from a face image using the TFLite model"""
+    # Get input and output tensors
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    
+    # Preprocess image
+    preprocessed_img = preprocess_face_image(img_path)
+    
+    # Set input tensor
+    interpreter.set_tensor(input_details[0]['index'], preprocessed_img)
+    
+    # Run inference
+    interpreter.invoke()
+    
+    # Get output tensor
+    embedding = interpreter.get_tensor(output_details[0]['index'])
+    return embedding.flatten()
+
+def get_vgg_embedding(model, img_path):
+    """Get embedding from a face image using the VGG model"""
+    preprocessed_img = preprocess_face_image(img_path)
+    embedding = model.predict(preprocessed_img)
+    return embedding.flatten()
+
+def save_embedding(embedding, person_name, database_path="face_embeddings.pkl"):
+    """Save a face embedding to the database with the person's name as label"""
+    # Load existing database if it exists
+    if os.path.exists(database_path):
+        with open(database_path, 'rb') as f:
+            embeddings_db = pickle.load(f)
+    else:
+        embeddings_db = {}
+    
+    # Add new embedding
+    embeddings_db[person_name] = embedding
+    
+    # Save updated database
+    with open(database_path, 'wb') as f:
+        pickle.dump(embeddings_db, f)
+    
+    print(f"Embedding for {person_name} saved to database.")
+
+def compare_face(interpreter, img_path, database_path="face_embeddings.pkl", threshold=0.4, is_tflite=True):
+    """Compare face in image with all faces in the database"""
+    # Get embedding for the input image
+    print(f"Processing image: {img_path}")
+    try:
+        if is_tflite:
+            query_embedding = get_face_embedding(interpreter, img_path)
+        else:
+            query_embedding = get_vgg_embedding(interpreter, img_path)
+    except ValueError as e:
+        print(f"Error: {str(e)}")
+        print("Tip: Make sure the image contains a clear, well-lit face")
+        return None
+    
+    # Load database
+    if not os.path.exists(database_path):
+        print("No database found.")
+        return None
+    
+    with open(database_path, 'rb') as f:
+        embeddings_db = pickle.load(f)
+    
+    if not embeddings_db:
+        print("Database is empty.")
+        return None
+    
+    print(f"Comparing against {len(embeddings_db)} faces in database...")
+    
+    # Compare with each embedding in the database
+    results = {}
+    for person_name, stored_embedding in embeddings_db.items():
+        # Calculate cosine similarity (1 - cosine distance)
+        similarity = 1 - cosine(query_embedding, stored_embedding)
+        results[person_name] = similarity
+        print(f"Similarity with {person_name}: {similarity:.4f}")
+    
+    # Find the best match
+    best_match = max(results.items(), key=lambda x: x[1])
+    
+    # Return result if similarity is above threshold
+    if best_match[1] > threshold:
+        return best_match
+    else:
+        return None
+
+def capture_image():
+    """Capture image from webcam and save it"""
+    output_filename = input("Enter the filename to save the captured image (e.g., capture1.jpg): ")
+    
+    print("Initializing webcam...")
     cap = cv2.VideoCapture(0)
-
+    
     if not cap.isOpened():
         print("Error: Could not open webcam.")
-        return
-
-    print("Press 's' to capture and compare.")
-
-    captured_frame = None
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: Could not read frame from webcam.")
-            break
-
-        cv2.imshow("Capture Face - Press 's' to Save and Compare", frame)
-        key = cv2.waitKey(1) & 0xFF
-
-        # Check if the user closes the window
-        if cv2.getWindowProperty("Capture Face - Press 's' to Save and Compare", cv2.WND_PROP_VISIBLE) < 1:
-            print("Window closed. Exiting capture.")
-            break
-
-        if key == ord('s') or key == ord('S'):
-            # Store the last frame in memory
-            captured_frame = frame.copy()
-            break
-
+        return False
+    
+    # Set camera properties for better quality
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    
+    print("Webcam initialized. Press SPACE to capture or ESC to cancel.")
+    print("Note: A bounding box will appear when a face is detected.")
+    
+    with mp_face_detection.FaceDetection(
+        model_selection=0,  # Use 0 for webcam/close-range detection
+        min_detection_confidence=0.5
+    ) as face_detection:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Error capturing frame.")
+                break
+            
+            # Flip the frame horizontally for a more natural view
+            frame = cv2.flip(frame, 1)
+            
+            # Convert the BGR image to RGB
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # Process the frame and detect faces
+            results = face_detection.process(frame_rgb)
+            
+            # Draw detection annotations on a copy of the frame
+            display_frame = frame.copy()
+            
+            # Count detected faces
+            num_faces = 0
+            
+            if results.detections:
+                num_faces = len(results.detections)
+                for detection in results.detections:
+                    # Get bounding box
+                    bbox = detection.location_data.relative_bounding_box
+                    h, w, _ = display_frame.shape
+                    
+                    # Convert relative coordinates to absolute
+                    x = int(bbox.xmin * w)
+                    y = int(bbox.ymin * h)
+                    width = int(bbox.width * w)
+                    height = int(bbox.height * h)
+                    
+                    # Draw rectangle
+                    cv2.rectangle(display_frame, (x, y), (x + width, y + height), (0, 255, 0), 2)
+                    
+                    # Draw confidence score
+                    confidence = detection.score[0]
+                    cv2.putText(display_frame, f"{confidence:.2f}", (x, y - 10),
+                              cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            
+            # Display number of faces detected
+            cv2.putText(display_frame, f"Faces detected: {num_faces}", (10, 30),
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            
+            # Display frame
+            cv2.imshow("Webcam Capture", display_frame)
+            
+            key = cv2.waitKey(1) & 0xFF
+            if key == 32:  # SPACE key
+                if num_faces == 1:
+                    cv2.imwrite(output_filename, frame)
+                    print(f"Image saved as {output_filename}")
+                    break
+                else:
+                    print(f"Please ensure exactly one face is in frame (detected: {num_faces})")
+            elif key == 27:  # ESC key
+                print("Capture cancelled.")
+                break
+    
     cap.release()
     cv2.destroyAllWindows()
+    return os.path.exists(output_filename)
 
-    if captured_frame is not None:
-        embeddings = load_embeddings()
-        if not embeddings:
-            print("No face embeddings found. Please save some faces first.")
-            return
-
-        print("\nDebug - Loaded embeddings:")
-        print(f"Number of stored embeddings: {len(embeddings)}")
-        print("Stored names:", list(embeddings.keys()))
-
-        try:
-            faces = DeepFace.extract_faces(captured_frame, detector_backend="opencv")
-            print(f"\nDebug - Found {len(faces)} faces in captured frame")
-            
-            for face_idx, face in enumerate(faces):
-                print(f"\nProcessing face {face_idx + 1}:")
-                x, y, w, h = (face["facial_area"]["x"],
-                            face["facial_area"]["y"],
-                            face["facial_area"]["w"],
-                            face["facial_area"]["h"])
-                
-                face_img = captured_frame[y:y+h, x:x+w]
-                print("Getting embedding for captured face...")
-                captured_embedding_obj = DeepFace.represent(face_img, model_name="VGG-Face", enforce_detection=False)[0]
-                
-                print("\nDebug - Captured face embedding:")
-                print(f"Type: {type(captured_embedding_obj)}")
-                if isinstance(captured_embedding_obj, dict):
-                    print("Keys:", captured_embedding_obj.keys())
-                
-                captured_embedding = captured_embedding_obj['embedding'] if isinstance(captured_embedding_obj, dict) else captured_embedding_obj
-                print(f"Embedding shape: {np.array(captured_embedding).shape}")
-
-                best_match = None
-                best_distance = float('inf')
-                start_time = time.time()
-
-                print("\nComparing with stored faces...")
-                distances = []  # Store all distances for analysis
-                
-                for name, stored_embedding in embeddings.items():
-                    print(f"\nChecking against {name}:")
-                    verified, distance = compare_embeddings(captured_embedding, stored_embedding)
-                    distances.append((name, distance))
-                    confidence = get_confidence_score(distance)
-                    print(f"Confidence: {confidence}%")
-                    if verified and distance < best_distance:
-                        best_match = name
-                        best_distance = distance
-                        print(f"New best match: {name} (distance: {distance:.4f}, confidence: {confidence}%)")
-                
-                # Sort and analyze distances
-                distances.sort(key=lambda x: x[1])
-                print("\nAll distances from closest to furthest:")
-                for name, dist in distances:
-                    print(f"{name}: {dist:.4f}")
-                
-                # If closest matches are very close to each other, show both
-                if len(distances) >= 2:
-                    closest, second_closest = distances[:2]
-                    distance_difference = second_closest[1] - closest[1]
-                    print(f"\nDistance difference between top 2 matches: {distance_difference:.4f}")
-                    
-                    if distance_difference < 0.1:  # If very close, show both
-                        print(f"Note: Top 2 matches ({closest[0]} and {second_closest[0]}) are very close!")
-                
-                end_time = time.time()
-                inference_time = end_time - start_time
-
-                # Draw results with new confidence calculation
-                if best_match:
-                    confidence = get_confidence_score(best_distance)
-                    label = f"{best_match} ({confidence:.1f}%)"
-                    
-                    # Adjust color based on confidence
-                    if confidence >= 90:
-                        color = (0, 255, 0)  # Green for high confidence
-                    elif confidence >= 70:
-                        color = (0, 255, 255)  # Yellow for medium confidence
-                    else:
-                        color = (0, 165, 255)  # Orange for low confidence
-                    
-                    print(f"\nFinal match: {best_match} (confidence: {confidence:.1f}%) in {inference_time:.2f} seconds")
-                    print(f"Distance: {best_distance:.4f} - " + 
-                          ("Very high similarity" if confidence >= 95 else
-                           "High similarity" if confidence >= 85 else
-                           "Good similarity" if confidence >= 75 else
-                           "Moderate similarity" if confidence >= 65 else
-                           "Low similarity"))
-                else:
-                    label = "Unknown"
-                    color = (0, 0, 255)  # Red for no match
-                    print("\nNo match found")
-
-                cv2.rectangle(captured_frame, (x, y), (x+w, y+h), color, 2)
-                cv2.putText(captured_frame, label, (x, y-10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-
-            # Display the frame with bounding box and label
-            cv2.imshow("Captured Image - Detected Face", captured_frame)
-
-            # Wait for the user to close the window or press any key
-            while cv2.getWindowProperty("Captured Image - Detected Face", cv2.WND_PROP_VISIBLE) >= 1:
-                cv2.waitKey(1)
-
-        except Exception as e:
-            print(f"Error during face detection or verification: {e}")
-            import traceback
-            print("Full error:")
-            print(traceback.format_exc())
-
-        cv2.destroyAllWindows()
-
-def capture_and_compare_traditional():
-    """Traditional method that compares against each saved image directly"""
-    cap = cv2.VideoCapture(0)
-
-    if not cap.isOpened():
-        print("Error: Could not open webcam.")
+def batch_process_saved_faces(model, is_tflite=False, directory="saved_faces"):
+    """Process all images in the saved_faces directory and save their embeddings"""
+    if not os.path.exists(directory):
+        print(f"Error: Directory {directory} not found.")
         return
-
-    print("Press 's' to capture and compare (Traditional Method).")
-
-    captured_frame = None
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: Could not read frame from webcam.")
-            break
-
-        cv2.imshow("Capture Face - Press 's' to Save and Compare", frame)
-        key = cv2.waitKey(1) & 0xFF
-
-        if cv2.getWindowProperty("Capture Face - Press 's' to Save and Compare", cv2.WND_PROP_VISIBLE) < 1:
-            print("Window closed. Exiting capture.")
-            break
-
-        if key == ord('s') or key == ord('S'):
-            captured_frame = frame.copy()
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-    if captured_frame is not None:
-        saved_faces = load_saved_faces()
-        if not saved_faces:
-            print("No faces found in the directory. Please save a face first.")
-            return
-
-        try:
-            faces = DeepFace.extract_faces(captured_frame, detector_backend="opencv")
-            print(f"\nFound {len(faces)} faces in captured frame")
-            total_time = 0
+    
+    processed = 0
+    errors = 0
+    db_path = "face_embeddings_tflite.pkl" if is_tflite else "face_embeddings_vgg.pkl"
+    model_type = "TFLite" if is_tflite else "VGG16"
+    
+    print(f"Processing images from {directory} using {model_type}...")
+    for filename in os.listdir(directory):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            img_path = os.path.join(directory, filename)
+            # Get person's name from filename (without extension)
+            person_name = os.path.splitext(filename)[0]
             
-            for face_idx, face in enumerate(faces):
-                x, y, w, h = (face["facial_area"]["x"],
-                             face["facial_area"]["y"],
-                             face["facial_area"]["w"],
-                             face["facial_area"]["h"])
-                
-                print(f"\nProcessing face {face_idx + 1}")
-                face_img = captured_frame[y:y+h, x:x+w]
-                
-                # Compare with each saved face
-                best_match = None
-                best_confidence = 0
-                face_times = []
-
-                for name, saved_face_path in saved_faces.items():
-                    print(f"\nComparing with {name}...")
-                    start_time = time.time()
-                    
-                    try:
-                        result = DeepFace.verify(face_img,
-                                               saved_face_path,
-                                               enforce_detection=False)
-                        
-                        end_time = time.time()
-                        comparison_time = end_time - start_time
-                        face_times.append(comparison_time)
-                        total_time += comparison_time
-                        
-                        print(f"Time taken: {comparison_time:.2f} seconds")
-                        print(f"Raw distance: {result['distance']:.4f}")
-                        confidence = get_confidence_score(result['distance'], "traditional")
-                        print(f"Confidence: {confidence}%")
-                        print(f"Verified: {result['verified']}")
-                        
-                        if result["verified"]:
-                            if confidence > best_confidence:
-                                best_match = name
-                                best_confidence = confidence
-                    
-                    except Exception as e:
-                        print(f"Error comparing with {name}: {e}")
-
-                # Draw results
-                if best_match:
-                    label = f"{best_match} ({best_confidence}%)"
-                    color = (0, 255, 0)
-                    print(f"\nBest match: {best_match} with {best_confidence}% confidence")
+            try:
+                print(f"Processing image for {person_name}...")
+                if is_tflite:
+                    embedding = get_face_embedding(model, img_path)
                 else:
-                    label = "Unknown"
-                    color = (0, 0, 255)
-                    print("\nNo match found")
+                    embedding = get_vgg_embedding(model, img_path)
+                save_embedding(embedding, person_name, db_path)
+                processed += 1
+                print(f"Successfully saved {model_type} embedding for {person_name}.")
+            except Exception as e:
+                print(f"Error processing {filename}: {str(e)}")
+                errors += 1
+    
+    print(f"\nBatch processing complete:")
+    print(f"Successfully processed: {processed} images")
+    print(f"Errors encountered: {errors} images")
 
-                cv2.rectangle(captured_frame, (x, y), (x+w, y+h), color, 2)
-                cv2.putText(captured_frame, label, (x, y-10),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-                
-                # Print timing statistics
-                if face_times:
-                    avg_time = sum(face_times) / len(face_times)
-                    print(f"\nTiming Statistics:")
-                    print(f"Average time per comparison: {avg_time:.2f} seconds")
-                    print(f"Total time for all comparisons: {total_time:.2f} seconds")
-                    print(f"Number of comparisons: {len(face_times)}")
-
-            cv2.imshow("Captured Image - Detected Face (Traditional Method)", captured_frame)
-            while cv2.getWindowProperty("Captured Image - Detected Face (Traditional Method)", cv2.WND_PROP_VISIBLE) >= 1:
-                cv2.waitKey(1)
-
+def process_save_embedding_vgg(model):
+    """Process an image and save its embedding using VGG16"""
+    print("\nChoose processing mode:")
+    print("1. Process single image")
+    print("2. Batch process saved_faces directory")
+    mode = input("Enter your choice (1-2): ")
+    
+    if mode == "1":
+        img_path = input("Enter the image filename (e.g., capture1.jpg): ")
+        if not os.path.exists(img_path):
+            print(f"Error: File {img_path} not found.")
+            return
+        
+        person_name = input("Enter the person's name: ")
+        try:
+            print(f"Processing image: {img_path}")
+            embedding = get_vgg_embedding(model, img_path)
+            save_embedding(embedding, person_name, "face_embeddings_vgg.pkl")
+            print(f"Successfully saved VGG16 embedding for {person_name}.")
+        except ValueError as e:
+            print(f"Error: {str(e)}")
+            print("Skipping this image.")
+            return
         except Exception as e:
-            print(f"Error during face detection or verification: {e}")
-            import traceback
-            print("Full error:")
-            print(traceback.format_exc())
+            print(f"Unexpected error: {str(e)}")
+            return
+    
+    elif mode == "2":
+        batch_process_saved_faces(model, is_tflite=False)
 
-        cv2.destroyAllWindows()
+def process_save_embedding_tflite(interpreter):
+    """Process an image and save its embedding using TFLite"""
+    print("\nChoose processing mode:")
+    print("1. Process single image")
+    print("2. Batch process saved_faces directory")
+    mode = input("Enter your choice (1-2): ")
+    
+    if mode == "1":
+        img_path = input("Enter the image filename (e.g., capture1.jpg): ")
+        if not os.path.exists(img_path):
+            print(f"Error: File {img_path} not found.")
+            return
+        
+        person_name = input("Enter the person's name: ")
+        try:
+            print(f"Processing image: {img_path}")
+            embedding = get_face_embedding(interpreter, img_path)
+            save_embedding(embedding, person_name, "face_embeddings_tflite.pkl")
+            print(f"Successfully saved TFLite embedding for {person_name}.")
+        except ValueError as e:
+            print(f"Error: {str(e)}")
+            print("Skipping this image.")
+            return
+        except Exception as e:
+            print(f"Unexpected error: {str(e)}")
+            return
+    
+    elif mode == "2":
+        batch_process_saved_faces(interpreter, is_tflite=True)
+
+def compare_face_performance(vgg_model, tflite_interpreter, img_path, threshold=0.4):
+    """Compare face using both models and measure performance"""
+    results = {}
+    
+    try:
+        # Process image once for both models
+        preprocessed_img = preprocess_face_image(img_path)
+        
+        # VGG16 Performance
+        print("\nTesting VGG16 model...")
+        start_time = time.time()
+        vgg_embedding = vgg_model.predict(preprocessed_img)
+        vgg_time = time.time() - start_time
+        vgg_result = compare_face(vgg_model, img_path, "face_embeddings_vgg.pkl", threshold, is_tflite=False)
+        
+        # TFLite Performance
+        print("\nTesting TFLite model...")
+        start_time = time.time()
+        input_details = tflite_interpreter.get_input_details()
+        output_details = tflite_interpreter.get_output_details()
+        tflite_interpreter.set_tensor(input_details[0]['index'], preprocessed_img)
+        tflite_interpreter.invoke()
+        tflite_embedding = tflite_interpreter.get_tensor(output_details[0]['index'])
+        tflite_time = time.time() - start_time
+        tflite_result = compare_face(tflite_interpreter, img_path, "face_embeddings_tflite.pkl", threshold, is_tflite=True)
+        
+        # Print comparison
+        print("\n=== Performance Comparison ===")
+        print(f"VGG16 processing time: {vgg_time:.4f} seconds")
+        print(f"TFLite processing time: {tflite_time:.4f} seconds")
+        print(f"Speed improvement: {((vgg_time - tflite_time) / vgg_time * 100):.2f}%")
+        
+        print("\n=== Results Comparison ===")
+        if vgg_result:
+            print(f"VGG16 match: {vgg_result[0]} (similarity: {vgg_result[1]:.4f})")
+        else:
+            print("VGG16: No match found")
+            
+        if tflite_result:
+            print(f"TFLite match: {tflite_result[0]} (similarity: {tflite_result[1]:.4f})")
+        else:
+            print("TFLite: No match found")
+            
+    except ValueError as e:
+        print(f"Error: {str(e)}")
+
+def process_compare_face(vgg_model, tflite_interpreter):
+    """Compare face with option to use either or both models"""
+    print("\nChoose comparison mode:")
+    print("1. Use VGG16 model")
+    print("2. Use TFLite model")
+    print("3. Compare both models (performance analysis)")
+    mode = input("Enter your choice (1-3): ")
+    
+    img_path = input("Enter the image filename to compare: ")
+    if not os.path.exists(img_path):
+        print(f"Error: File {img_path} not found.")
+        return
+    
+    if mode == "1":
+        if not os.path.exists("face_embeddings_vgg.pkl"):
+            print("Error: No VGG16 database found.")
+            return
+        start_time = time.time()
+        result = compare_face(vgg_model, img_path, "face_embeddings_vgg.pkl", is_tflite=False)
+        process_time = time.time() - start_time
+        print(f"\nProcessing time: {process_time:.4f} seconds")
+        
+    elif mode == "2":
+        if not os.path.exists("face_embeddings_tflite.pkl"):
+            print("Error: No TFLite database found.")
+            return
+        start_time = time.time()
+        result = compare_face(tflite_interpreter, img_path, "face_embeddings_tflite.pkl", is_tflite=True)
+        process_time = time.time() - start_time
+        print(f"\nProcessing time: {process_time:.4f} seconds")
+        
+    elif mode == "3":
+        compare_face_performance(vgg_model, tflite_interpreter, img_path)
+        return
+    
+    if result:
+        person_name, similarity = result
+        print(f"\nMatch found: {person_name} (similarity: {similarity:.4f})")
+    else:
+        print("\nNo matching face found in the database.")
+
+def display_menu():
+    """Display menu options"""
+    print("\n===== Face Recognition System =====")
+    print("1. Capture image from webcam")
+    print("2. Save face embedding to database (VGG16)")
+    print("3. Save face embedding to database (TFLite)")
+    print("4. Compare face against database")
+    print("0. Exit")
+    print("===================================")
+    return input("Enter your choice (0-4): ")
 
 def main():
+    """Main program"""
+    # Load both models once
+    vgg_model = get_vgg_model()
+    tflite_interpreter = get_tflite_model()
+    
     while True:
-        print("\nOptions:")
-        print("1. Capture and save face image")
-        print("2. Generate/regenerate embeddings for saved faces")
-        print("3. Verify face (compare with saved faces using embeddings)")
-        print("4. Exit")
-        print("9. Verify face (traditional method - slower but more accurate)")
-        choice = input("Enter your choice (1-4, or 9): ")
-
+        choice = display_menu()
+        
         if choice == "1":
-            capture_face()
+            capture_image()
         elif choice == "2":
-            regenerate_embeddings()
+            process_save_embedding_vgg(vgg_model)
         elif choice == "3":
-            capture_and_compare()
+            process_save_embedding_tflite(tflite_interpreter)
         elif choice == "4":
-            print("Exiting...")
+            process_compare_face(vgg_model, tflite_interpreter)
+        elif choice == "0":
+            print("Exiting program. Goodbye!")
             break
-        elif choice == "9":
-            capture_and_compare_traditional()
         else:
             print("Invalid choice. Please try again.")
+        
+        input("\nPress Enter to continue...")
 
 if __name__ == "__main__":
     main()
-
