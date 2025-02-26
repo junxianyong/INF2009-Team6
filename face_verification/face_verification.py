@@ -1,6 +1,8 @@
 # Description: Face verification system using VGG16 and TFLite models
+
 # NOTE: Before running, make sure you already have the tflite version of model (vgg16_feature_extractor.tflite)
 # If not: You can convert/create your own model using the convert_to_tflite.py script (Run on your main desktop, not on the Raspberry Pi)
+# Or download from Google Drive: https://drive.google.com/file/d/1Ry7pJ3tz78orypZg3OqLMtDDIf1u3bUU/view?usp=drive_link
 
 import cv2
 import numpy as np
