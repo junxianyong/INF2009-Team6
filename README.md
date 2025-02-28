@@ -8,22 +8,22 @@ This project is a dual-gate access authentication system that uses 2-factor auth
 ### Fog Device
 1. Install Docker on the fog device.
 2. Run the following command to start the MQTT broker container.
-```bash
-docker run -d --name mqtt-broker \
--p 1883:1883 \
--e MOSQUITTO_USERNAME=mosquitto \
--e MOSQUITTO_PASSWORD=mosquitto \
-ekiost/mqtt-broker:latest
-```
+    ```bash
+    docker run -d --name mqtt-broker \
+    -p 1883:1883 \
+    -e MOSQUITTO_USERNAME=mosquitto \
+    -e MOSQUITTO_PASSWORD=mosquitto \
+    ekiost/mqtt-broker:latest
+    ```
 
 Optional: Download tools like MQTTX to see the messages being published and subscribed to the MQTT broker.
 
 ### Raspberry Pi
 Note: You can run this on you local machine for testing purposes.
 1. Install dependencies.
-```bash
-pip install -r src/requirements.txt
-```
+    ```bash
+    pip install -r src/requirements.txt
+    ```
 2. Run the `src/gate1.py` script on the Raspberry Pi connected to the first gate.
 3. Run the `src/gate2.py` script on the Raspberry Pi connected to the second gate.
 
@@ -38,6 +38,57 @@ pip install -r src/requirements.txt
 - Led
 - Buzzer
 - Ultrasonic sensor
+
+### Communication
+The system will use MQTT and REST to communicate between the two gates and the fog device. 
+
+#### MQTT Topics
+The system will use the following topics to communicate between the two gates and the fog device.
+- `gate_1\status`: This topic is used by the first gate to publish its status. 
+    ```json
+    {
+        "opened": "2025-02-28 21:52:39"
+    }
+    ```
+    ```json
+    {
+        "closed": "2025-02-28 21:52:39"
+    }
+    ```
+- `gate_2\status`: This topic is used by the second gate to publish its status. 
+    ```json
+    {
+        "opened": "2025-02-28 21:52:39"
+    }
+    ```
+    ```json
+    {
+        "closed": "2025-02-28 21:52:39"
+    }
+    ```
+- `verified`: This topic is used to tell the second gate that the person has been verified by the first gate. The message will contain the personnel ID of the person.
+    ```json
+    {
+        "personnel_id": "123456"
+    }
+    ```
+- `alert`: This topic is used to send an alert to the fog device and let first gate proceed to the next state.
+    ```json
+    {
+        "message": "multi",
+        "picture": "base64 encoded picture"
+    }
+    ```
+    ```json
+    {
+        "message": "diff",
+        "picture": "base64 encoded picture"
+    }
+    ```
+
+#### REST API (TODO: Add more details)
+
+
 
 ## State Diagram
 The state table and state diagram are shown below. The state diagram is a visual representation of the state table. The state table shows the states of the system, the conditions that trigger the transitions between states, and the actions to take when transitioning between states. The state diagram shows the states of the system as nodes and the transitions between states as edges. The state diagram is a useful tool for understanding the behavior of the system and for designing the system.
