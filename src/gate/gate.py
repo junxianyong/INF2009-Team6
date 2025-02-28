@@ -148,10 +148,18 @@ class Gate:
             self._logger.addHandler(console_handler)
 
         self.publisher = Publisher(
-            self.mqtt_broker, self.mqtt_port, self.mqtt_username, self.mqtt_password
+            self.mqtt_broker,
+            self.mqtt_port,
+            self.mqtt_username,
+            self.mqtt_password,
+            logging_level,
         )
         self.subscriber = Subscriber(
-            self.mqtt_broker, self.mqtt_port, self.mqtt_username, self.mqtt_password
+            self.mqtt_broker,
+            self.mqtt_port,
+            self.mqtt_username,
+            self.mqtt_password,
+            logging_level,
         )
         self.personnel_id = None
 

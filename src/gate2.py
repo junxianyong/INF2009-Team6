@@ -7,6 +7,6 @@ gate2 = Gate(
     mqtt_port=1883,
     mqtt_username="mosquitto",
     mqtt_password="mosquitto",
-    logging_level=logging.INFO,
+    logging_level=logging.DEBUG,
 )
 gate2.run()

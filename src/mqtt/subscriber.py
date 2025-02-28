@@ -1,6 +1,7 @@
 import json
 from time import sleep
 import paho.mqtt.client as mqtt
+import logging
 
 
 class Subscriber:
@@ -16,6 +17,7 @@ class Subscriber:
         connected (bool): Connection status flag
         client (mqtt.Client): The MQTT client instance
         on_message_callback (callable): Optional callback for message handling
+        _logger: Logger instance for this class
     """
 
     def __init__(
@@ -25,6 +27,7 @@ class Subscriber:
         username=None,
         password=None,
         on_message_callback=None,
+        logging_level=logging.INFO,
     ):
         """
         Initialize the MQTT Subscriber.
@@ -35,6 +38,7 @@ class Subscriber:
             username (str, optional): Authentication username. Defaults to None.
             password (str, optional): Authentication password. Defaults to None.
             on_message_callback (callable, optional): Custom message handler. Defaults to None.
+            logging_level: The logging level to use. Defaults to logging.INFO.
         """
         self.broker = broker
         self.port = port
@@ -46,6 +50,23 @@ class Subscriber:
         self.client.on_message = self._on_message
         self.client.on_subscribe = self._on_subscribe
         self.on_message_callback = on_message_callback
+
+        # Configure logging
+        self._logger = logging.getLogger(__name__)
+        self._logger.setLevel(logging_level)
+
+        # Check if handler already exists to prevent double logging
+        if not self._logger.handlers:
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging_level)
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            )
+            console_handler.setFormatter(formatter)
+            self._logger.addHandler(console_handler)
+
+        # Set propagate to False to prevent double logging when this logger is a child of another logger
+        self._logger.propagate = False
 
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         """
@@ -59,12 +80,14 @@ class Subscriber:
             properties: Properties from the connection response
         """
         if reason_code == 0:
-            print("Connected to MQTT broker")
+            self._logger.info("Connected to MQTT broker")
             self.connected = True
         else:
-            print(f"Failed to connect, return code: {reason_code}")
+            self._logger.error(f"Failed to connect, return code: {reason_code}")
             if reason_code == 5:  # Authentication failed
-                print("Authentication failed - check username and password")
+                self._logger.error(
+                    "Authentication failed - check username and password"
+                )
 
     def _on_message(self, client, userdata, message):
         """
@@ -78,17 +101,21 @@ class Subscriber:
         if self.on_message_callback:
             try:
                 decoded_payload = message.payload.decode()
+                self._logger.debug(
+                    f"Received message on topic {message.topic}: {decoded_payload}"
+                )
             except UnicodeDecodeError:
                 # If decode fails, pass the raw bytes
                 decoded_payload = None
+                self._logger.debug(f"Received binary message on topic {message.topic}")
             self.on_message_callback(message.topic, decoded_payload, message.payload)
         else:
             try:
-                print(
+                self._logger.info(
                     f"Received message on topic {message.topic}: {message.payload.decode()}"
                 )
             except UnicodeDecodeError:
-                print(
+                self._logger.info(
                     f"Received binary message on topic {message.topic}: {message.payload!r}"
                 )
 
@@ -103,7 +130,7 @@ class Subscriber:
             reason_codes: List of reason codes for each topic filter
             properties: Properties from the SUBACK packet
         """
-        print(f"Subscribed to topic")
+        self._logger.info(f"Subscribed with message ID: {mid}")
 
     def connect(self):
         """
@@ -113,10 +140,11 @@ class Subscriber:
             bool: True if connection is successful, False otherwise
         """
         try:
+            self._logger.info(f"Connecting to MQTT broker {self.broker}:{self.port}")
             self.client.connect(self.broker, self.port)
             self.client.loop_start()
         except Exception as e:
-            print(f"Connection failed: {e}")
+            self._logger.exception(f"Connection failed: {e}")
             return False
         return True
 
@@ -132,25 +160,36 @@ class Subscriber:
             bool: True if subscription is successful, False otherwise
         """
         try:
+            self._logger.info(f"Subscribing to topic {topic} with QoS {qos}")
             self.client.subscribe(topic, qos)
         except Exception as e:
-            print(f"Subscription failed: {e}")
+            self._logger.exception(f"Subscription failed: {e}")
             return False
         return True
 
     def disconnect(self):
         """Disconnect from the MQTT broker and stop the network loop."""
+        self._logger.info("Disconnecting from MQTT broker")
         self.client.loop_stop()
         self.client.disconnect()
 
 
 if __name__ == "__main__":
+    # Set up logging for the main module
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+    logger = logging.getLogger(__name__)
+
     # Example usage with custom callback
     def custom_message_handler(topic, text_payload, raw_payload):
         if text_payload is not None:
-            print(f"Custom handler received: Topic={topic}, Message={text_payload}")
+            logger.info(
+                f"Custom handler received: Topic={topic}, Message={text_payload}"
+            )
         else:
-            print(
+            logger.info(
                 f"Custom handler received binary data: Topic={topic}, Raw={raw_payload!r}"
             )
 
