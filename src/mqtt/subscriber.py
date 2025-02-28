@@ -154,14 +154,6 @@ if __name__ == "__main__":
                 f"Custom handler received binary data: Topic={topic}, Raw={raw_payload!r}"
             )
 
-        if topic == "gate_2/status":
-            print(json.loads(text_payload)["closed"])
-            if (
-                text_payload is not None
-                and json.loads(text_payload)["closed"] is not None
-            ):
-                print("Gate 2 is closed")
-
     subscriber = Subscriber(
         broker="localhost",
         port=1883,
@@ -172,8 +164,7 @@ if __name__ == "__main__":
     subscriber.connect()
     while not subscriber.connected:
         pass
-    subscriber.subscribe("gate_2/status", 2)
-    subscriber.subscribe("alert", 2)
+    subscriber.subscribe("test", 2)
     try:
         while True:
             sleep(1)

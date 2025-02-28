@@ -1,4 +1,4 @@
-from gate import Gate
+from gate.gate import Gate
 import logging
 
 gate2 = Gate(
