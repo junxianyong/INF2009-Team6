@@ -1,12 +1,12 @@
 from gate import Gate
 import logging
 
-gate1 = Gate(
-    type="gate1",
+gate2 = Gate(
+    type="gate2",
     mqtt_broker="localhost",
     mqtt_port=1883,
     mqtt_username="mosquitto",
     mqtt_password="mosquitto",
     logging_level=logging.INFO,
 )
-gate1.run()
+gate2.run()
