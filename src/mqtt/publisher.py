@@ -16,12 +16,11 @@ class Publisher:
         client (mqtt.Client): The MQTT client instance
     """
 
-    def __init__(self, client_id, broker, port=1883, username=None, password=None):
+    def __init__(self, broker, port=1883, username=None, password=None):
         """
         Initialize the MQTT Publisher.
 
         Args:
-            client_id (str): Unique identifier for the client
             broker (str): MQTT broker address
             port (int, optional): Broker port number. Defaults to 1883.
             username (str, optional): Authentication username. Defaults to None.
@@ -111,16 +110,14 @@ class Publisher:
 
 if __name__ == "__main__":
     publisher = Publisher(
-        client_id="publisher",
-        broker="test.mosquitto.org",
-        username="rw",
-        password="readwrite",
-        port=1884,
+        broker="localhost",
+        username="mosquitto",
+        password="mosquitto",
     )
     publisher.connect()
     while not publisher.connected:
         pass
     for i in range(10):
         sleep(1)
-        publisher.publish("test", f"Hello, world! {i}", 3)
+        publisher.publish("test", f"Hello, world! {i}", 2)
     publisher.disconnect()

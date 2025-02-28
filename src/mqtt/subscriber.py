@@ -1,3 +1,4 @@
+import json
 from time import sleep
 import paho.mqtt.client as mqtt
 
@@ -19,7 +20,6 @@ class Subscriber:
 
     def __init__(
         self,
-        client_id,
         broker,
         port=1883,
         username=None,
@@ -30,7 +30,6 @@ class Subscriber:
         Initialize the MQTT Subscriber.
 
         Args:
-            client_id (str): Unique identifier for the client
             broker (str): MQTT broker address
             port (int, optional): Broker port number. Defaults to 1883.
             username (str, optional): Authentication username. Defaults to None.
@@ -155,18 +154,26 @@ if __name__ == "__main__":
                 f"Custom handler received binary data: Topic={topic}, Raw={raw_payload!r}"
             )
 
+        if topic == "gate_2/status":
+            print(json.loads(text_payload)["closed"])
+            if (
+                text_payload is not None
+                and json.loads(text_payload)["closed"] is not None
+            ):
+                print("Gate 2 is closed")
+
     subscriber = Subscriber(
-        client_id="subscriber",
-        broker="test.mosquitto.org",
-        port=1884,
-        username="rw",
-        password="readwrite",
+        broker="localhost",
+        port=1883,
+        username="mosquitto",
+        password="mosquitto",
         on_message_callback=custom_message_handler,
     )
     subscriber.connect()
     while not subscriber.connected:
         pass
-    subscriber.subscribe("#")
+    subscriber.subscribe("gate_2/status", 2)
+    subscriber.subscribe("alert", 2)
     try:
         while True:
             sleep(1)
