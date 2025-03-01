@@ -1,8 +1,10 @@
 from gate.gate import Gate
 import logging
 
+from gate.gate_types import GateType
+
 gate2 = Gate(
-    type="gate2",
+    gate_type=GateType.GATE2,
     mqtt_broker="localhost",
     mqtt_port=1883,
     mqtt_username="mosquitto",
