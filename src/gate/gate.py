@@ -7,10 +7,13 @@ from network.mqtt.publisher import Publisher
 from network.mqtt.subscriber import Subscriber
 from utils.logger_mixin import LoggerMixin
 import time
+import logging
 
 
 class Gate(LoggerMixin):
-    def __init__(self, gate_type, mqtt_config, update_config, logging_level):
+    def __init__(
+        self, gate_type, mqtt_config, update_config, logging_level=logging.INFO
+    ):
         self._last_logged_state = None
         self.gate_type = gate_type
         self._mqtt_broker = mqtt_config["broker"]
