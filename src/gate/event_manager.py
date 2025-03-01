@@ -1,11 +1,13 @@
 import json
 from gate.enum.states import GateState
 from gate.example import open_gate, close_gate
+from utils.logger_mixin import LoggerMixin
 
 
-class GateCallbackHandler:
+class GateCallbackHandler(LoggerMixin):
     def __init__(self, gate):
         self.gate = gate
+        self._logger = self._setup_logger(__name__, self.gate.logger.level)
 
     def handle_gate1_message(self, topic, text_payload, raw_payload):
         """Callback for Gate 1 to handle messages from Gate 2 and Dashboard"""

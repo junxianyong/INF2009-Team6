@@ -5,11 +5,11 @@ from gate.enum.states import GateState
 from gate.update_manager import UpdateManager
 from network.mqtt.publisher import Publisher
 from network.mqtt.subscriber import Subscriber
-import logging
+from utils.logger_mixin import LoggerMixin
 import time
 
 
-class Gate:
+class Gate(LoggerMixin):
     def __init__(
         self,
         gate_type,
@@ -27,20 +27,7 @@ class Gate:
         self._mqtt_port = mqtt_port
         self._mqtt_username = mqtt_username
         self._mqtt_password = mqtt_password
-
-        # Configure logging
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging_level)
-
-        # Add console handler if none exists
-        if not self.logger.handlers:
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging_level)
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-            console_handler.setFormatter(formatter)
-            self.logger.addHandler(console_handler)
+        self.logger = self._setup_logger(__name__, logging_level)
 
         self.publisher = Publisher(
             self._mqtt_broker,

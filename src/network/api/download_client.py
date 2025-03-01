@@ -5,9 +5,10 @@ import inspect
 import os
 from datetime import datetime
 import logging
+from utils.logger_mixin import LoggerMixin
 
 
-class UpdateDownloader(threading.Thread):
+class UpdateDownloader(threading.Thread, LoggerMixin):
     def __init__(self, downloads, save_dir, callback=None, logging_level=logging.INFO):
         """
         downloads: dict of {type: url} pairs
@@ -15,26 +16,14 @@ class UpdateDownloader(threading.Thread):
         callback: callback function to call when all downloads complete
         logging_level: logging level for this class
         """
-        super().__init__()
+        threading.Thread.__init__(self)
         self._downloads = downloads  # private as it's internal state
         self._save_dir = save_dir  # private as it's internal state
         self._callback = callback  # private as it's internal state
         self._results = {}  # private as it's internal state
 
         # Configure logging
-        self._logger = logging.getLogger(__name__)
-        self._logger.setLevel(logging_level)
-
-        # Add console handler if none exists
-        if not self._logger.handlers:
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging_level)
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-            console_handler.setFormatter(formatter)
-            self._logger.addHandler(console_handler)
-            self._logger.propagate = False
+        self._logger = self._setup_logger(__name__, logging_level)
 
     def _call_callback(self):  # already private, correct
         if not self._callback:

@@ -1,8 +1,9 @@
 import logging
 import paho.mqtt.client as mqtt
+from utils.logger_mixin import LoggerMixin
 
 
-class Publisher:
+class Publisher(LoggerMixin):
     """
     A MQTT Publisher client that handles connections and message publishing.
 
@@ -43,23 +44,7 @@ class Publisher:
             self._client.username_pw_set(username, password)
         self._client.on_connect = self._on_connect
         self._client.on_publish = self._on_publish
-
-        # Configure logging
-        self._logger = logging.getLogger(__name__)
-        self._logger.setLevel(logging_level)
-
-        # Check if handler already exists to prevent double logging
-        if not self._logger.handlers:
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging_level)
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
-            console_handler.setFormatter(formatter)
-            self._logger.addHandler(console_handler)
-
-        # Set propagate to False to prevent double logging when this logger is a child of another logger
-        self._logger.propagate = False
+        self._logger = self._setup_logger(__name__, logging_level)
 
     @property
     def connected(self):
