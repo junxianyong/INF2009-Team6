@@ -35,14 +35,14 @@ class Publisher:
             password (str, optional): Authentication password. Defaults to None.
             logging_level: The logging level to use. Defaults to logging.INFO.
         """
-        self.broker = broker
-        self.port = port
-        self.connected = False
-        self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        self._broker = broker
+        self._port = port
+        self._connected = False
+        self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         if username and password:
-            self.client.username_pw_set(username, password)
-        self.client.on_connect = self._on_connect
-        self.client.on_publish = self._on_publish
+            self._client.username_pw_set(username, password)
+        self._client.on_connect = self._on_connect
+        self._client.on_publish = self._on_publish
 
         # Configure logging
         self._logger = logging.getLogger(__name__)
@@ -61,13 +61,17 @@ class Publisher:
         # Set propagate to False to prevent double logging when this logger is a child of another logger
         self._logger.propagate = False
 
+    @property
+    def connected(self):
+        return self._connected
+
     def _on_connect(self, client, userdata, flags, reason_code, properties):
         """
         Callback for when the client connects to the broker.
         """
         if reason_code == 0:
             self._logger.info("Connected to MQTT broker")
-            self.connected = True
+            self._connected = True
         else:
             self._logger.error(f"Failed to connect, return code: {reason_code}")
             if reason_code == 5:  # Authentication failed
@@ -86,9 +90,9 @@ class Publisher:
         Connect to the MQTT broker.
         """
         try:
-            self._logger.info(f"Connecting to MQTT broker {self.broker}:{self.port}")
-            self.client.connect(self.broker, self.port)
-            self.client.loop_start()
+            self._logger.info(f"Connecting to MQTT broker {self._broker}:{self._port}")
+            self._client.connect(self._broker, self._port)
+            self._client.loop_start()
         except Exception as e:
             self._logger.exception(f"Connection failed: {e}")
             return False
@@ -100,7 +104,7 @@ class Publisher:
         """
         try:
             self._logger.info(f"Publishing to {topic} with QoS {qos}: {message}")
-            result = self.client.publish(topic, message, qos)
+            result = self._client.publish(topic, message, qos)
             result.wait_for_publish()
             return result.is_published()
         except Exception as e:
@@ -110,5 +114,5 @@ class Publisher:
     def disconnect(self):
         """Disconnect from the MQTT broker and stop the network loop."""
         self._logger.info("Disconnecting from MQTT broker")
-        self.client.loop_stop()
-        self.client.disconnect()
+        self._client.loop_stop()
+        self._client.disconnect()
