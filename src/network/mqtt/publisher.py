@@ -75,7 +75,7 @@ class Publisher(LoggerMixin):
         Connect to the MQTT broker.
         """
         try:
-            self._logger.info(f"Connecting to MQTT broker {self._broker}:{self._port}")
+            self._logger.debug(f"Connecting to MQTT broker {self._broker}:{self._port}")
             self._client.connect(self._broker, self._port)
             self._client.loop_start()
         except Exception as e:
@@ -88,7 +88,7 @@ class Publisher(LoggerMixin):
         Publish a message to a topic on the MQTT broker.
         """
         try:
-            self._logger.info(f"Publishing to {topic} with QoS {qos}: {message}")
+            self._logger.debug(f"Publishing to {topic} with QoS {qos}: {message}")
             result = self._client.publish(topic, message, qos)
             result.wait_for_publish()
             return result.is_published()

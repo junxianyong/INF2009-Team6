@@ -174,11 +174,11 @@ if __name__ == "__main__":
     # Example usage with custom callback
     def custom_message_handler(topic, text_payload, raw_payload):
         if text_payload is not None:
-            logger.info(
+            logger.debug(
                 f"Custom handler received: Topic={topic}, Message={text_payload}"
             )
         else:
-            logger.info(
+            logger.debug(
                 f"Custom handler received binary data: Topic={topic}, Raw={raw_payload!r}"
             )
 

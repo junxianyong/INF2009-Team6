@@ -4,10 +4,10 @@ from utils.logger_mixin import LoggerMixin
 
 
 class UpdateManager(LoggerMixin):
-    def __init__(self, gate, update_url: str, update_save_dir: str):
+    def __init__(self, gate, update_config):
         self.gate = gate
-        self.update_url = update_url
-        self.update_save_dir = update_save_dir
+        self.update_url = update_config["url"]
+        self.update_save_dir = update_config["save_path"]
         self.update_thread = None
         self.update_queue = Queue()
         self.logger = self._setup_logger(__name__, self.gate.logger.level)

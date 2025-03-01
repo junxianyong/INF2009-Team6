@@ -10,25 +10,14 @@ import time
 
 
 class Gate(LoggerMixin):
-    def __init__(
-        self,
-        gate_type,
-        mqtt_broker,
-        mqtt_port,
-        mqtt_username,
-        mqtt_password,
-        update_url,
-        update_save_path,
-        logging_level,
-    ):
+    def __init__(self, gate_type, mqtt_config, update_config, logging_level):
         self._last_logged_state = None
         self.gate_type = gate_type
-        self._mqtt_broker = mqtt_broker
-        self._mqtt_port = mqtt_port
-        self._mqtt_username = mqtt_username
-        self._mqtt_password = mqtt_password
+        self._mqtt_broker = mqtt_config["broker"]
+        self._mqtt_port = mqtt_config["port"]
+        self._mqtt_username = mqtt_config["username"]
+        self._mqtt_password = mqtt_config["password"]
         self.logger = self._setup_logger(__name__, logging_level)
-
         self.publisher = Publisher(
             self._mqtt_broker,
             self._mqtt_port,
@@ -46,7 +35,7 @@ class Gate(LoggerMixin):
         self.personnel_id = None
         self.is_busy = False
         self.state_manager = StateManager(self)
-        self.update_manager = UpdateManager(self, update_url, update_save_path)
+        self.update_manager = UpdateManager(self, update_config)
         self.callback_handler = GateCallbackHandler(self)
 
     def _log_state(self, state_number):
