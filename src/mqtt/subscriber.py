@@ -49,7 +49,7 @@ class Subscriber:
         self._client.on_connect = self._on_connect
         self._client.on_message = self._on_message
         self._client.on_subscribe = self._on_subscribe
-        self._on_message_callback = on_message_callback
+        self.on_message_callback = on_message_callback
 
         # Configure logging
         self._logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ class Subscriber:
             userdata: User data of any type
             message: The received message instance
         """
-        if self._on_message_callback:
+        if self.on_message_callback:
             try:
                 decoded_payload = message.payload.decode()
                 self._logger.debug(
@@ -112,7 +112,7 @@ class Subscriber:
                 # If decode fails, pass the raw bytes
                 decoded_payload = None
                 self._logger.debug(f"Received binary message on topic {message.topic}")
-            self._on_message_callback(message.topic, decoded_payload, message.payload)
+            self.on_message_callback(message.topic, decoded_payload, message.payload)
         else:
             try:
                 self._logger.info(

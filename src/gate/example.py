@@ -1,3 +1,6 @@
+import time
+
+
 def face_detected():
     """
     TODO: This function is a infinte loop that waits for a face to be detected
