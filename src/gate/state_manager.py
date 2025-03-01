@@ -1,15 +1,17 @@
-from .states import GateState
-from .example import *
+from gate.enum.states import GateState
+from gate.enum.gate_types import GateType
+from gate.example import *
 import json
 from datetime import datetime
-from .gate_types import GateType
+from utils.logger_mixin import LoggerMixin
 
 
-class StateManager:
+class StateManager(LoggerMixin):
     def __init__(self, gate):
         self.gate = gate
         self._last_logged_state = None
         self._current_state = None
+        self.logger = self._setup_logger(__name__, self.gate.logger.level)
 
         # Map states to handler methods
         self._state_handlers = {
@@ -38,7 +40,7 @@ class StateManager:
     def _log_state_change(self, state):
         """Log state only if it has changed"""
         if state != self._last_logged_state:
-            self.gate.logger.info(f"State changed to: {state.name}")
+            self.logger.info(f"State changed to: {state.name}")
             self._last_logged_state = state
 
         # If the state is not IDLE or WAITING_FOR_FACE, the system is busy

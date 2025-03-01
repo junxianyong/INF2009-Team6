@@ -1,7 +1,7 @@
 from gate.gate import Gate
 import logging
 
-from gate.gate_types import GateType
+from gate.enum.gate_types import GateType
 
 gate1 = Gate(
     gate_type=GateType.GATE1,
