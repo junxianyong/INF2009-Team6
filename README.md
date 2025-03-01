@@ -85,10 +85,46 @@ The system will use the following topics to communicate between the two gates an
         "picture": "base64 encoded picture"
     }
     ```
+- `command`: This topic is used to send a command to the first gate to open or close the gate.
+    ```json
+    {
+        "command": "open"
+    }
+    ```
+    ```json
+    {
+        "command": "close"
+    }
+    ```
+- `update/embeddings`: This topic is used to tell the pi to update the embeddings of the personnel.
+    ```json
+    {
+        "face": "filename.pkl",
+        "voice": "filename.pkl"
+    }
 
-#### REST API (TODO: Add more details)
+#### API (TODO: Add more details)
+The system will use the following API to get the embeddings of the personnel.
+- `GET /embeddings/face/filename.pkl`: This API is used to get the face embeddings of the personnel.
+- `GET /embeddings/voice/filename.pkl`: This API is used to get the voice embeddings of the personnel.
 
 
+## Classes
+- Gate: this class will represent the gate and will have the following class
+    - EventManager: this class will manage the events that occur at the gate from the MQTT broker
+    - StateManager: this class will manage the state of the gate
+    - UpdateManager: this class will manage the updates that occur at the gate from the MQTT broker
+- Network: 
+    - MQTT:
+        - Publisher: this class will publish messages to the MQTT broker
+        - Subscriber: this class will subscribe to messages from the MQTT broker
+    - API:
+        - UpdateDownloader: this class will download the embeddings of the personnel from the API
+- Utils:
+    - LoggerMixin: this class will log the messages to the console 
+- Enums:
+    - GateState: this enum will represent the state of the gate
+    - GateType: this enum will represent the type of the gate
 
 ## State Diagram
 The state table and state diagram are shown below. The state diagram is a visual representation of the state table. The state table shows the states of the system, the conditions that trigger the transitions between states, and the actions to take when transitioning between states. The state diagram shows the states of the system as nodes and the transitions between states as edges. The state diagram is a useful tool for understanding the behavior of the system and for designing the system.
