@@ -85,27 +85,38 @@ class Gate:
         # If the state is not None or 1, the system is busy
         self.is_busy = state_number not in [None, 1]
 
-    def _handle_update(self, embedding_name):
-        """Handle the update process in a separate thread"""
+    def _handle_update(self, updates):
+        """Handle multiple update processes in parallel"""
         if self.is_busy:
-            self._logger.info(f"System is busy, queueing update for {embedding_name}")
-            self.update_queue.put(embedding_name)
+            self._logger.info(f"System is busy, queueing updates")
+            self.update_queue.put(updates)
             return True
 
         if self.update_thread and self.update_thread.is_alive():
             self._logger.warning("Update already in progress")
             return False
 
-        def update_callback(success):
+        def update_callback(success, results=None):
             if success:
-                self._logger.info("Update completed successfully")
+                self._logger.info("All updates completed successfully")
             else:
-                self._logger.error("Update failed")
+                self._logger.error("Some updates failed")
+                if results:
+                    for update_type, result in results.items():
+                        self._logger.info(
+                            f"{update_type} update: {'Success' if result else 'Failed'}"
+                        )
             self.update_thread = None
 
+        # Create URLs dictionary
+        download_urls = {
+            update_type: f"{self.update_url}{filename}"
+            for update_type, filename in updates.items()
+        }
+
         self.update_thread = UpdateDownloader(
-            f"{self.update_url}{embedding_name}",
-            f"{self.update_save_dir}",
+            download_urls,
+            self.update_save_dir,
             update_callback,
         )
         self.update_thread.start()
@@ -114,9 +125,9 @@ class Gate:
     def _process_pending_updates(self):
         """Process any pending updates in the queue"""
         if not self.update_queue.empty() and not self.is_busy:
-            embedding_name = self.update_queue.get()
-            self._logger.info(f"Processing queued update for {embedding_name}")
-            self._handle_update(embedding_name)
+            updates = self.update_queue.get()
+            self._logger.info(f"Processing queued updates")
+            self._handle_update(updates)
 
     def state_1(self):
         self._log_state(1)
@@ -263,12 +274,12 @@ class Gate:
                 self.current_status = 6  # move to state 6
 
         # Handle update command
-        if topic == "update":
+        if topic == "update/embedding":
             try:
                 payload = json.loads(text_payload)
-                if "embedding" in payload:
-                    embedding_name = payload["embedding"]
-                    self._handle_update(embedding_name)
+                updates = {k: v for k, v in payload.items() if k in ["face", "voice"]}
+                if updates:
+                    self._handle_update(updates)
             except json.JSONDecodeError:
                 self._logger.error("Invalid update command format")
 
@@ -289,19 +300,19 @@ class Gate:
                 self.current_status = 8  # move to state 8
 
         # Handle update command
-        if topic == "update":
+        if topic == "update/embedding":
             try:
                 payload = json.loads(text_payload)
-                if "embedding" in payload:
-                    embedding_name = payload["embedding"]
-                    self._handle_update(embedding_name)
+                updates = {k: v for k, v in payload.items() if k in ["face", "voice"]}
+                if updates:
+                    self._handle_update(updates)
             except json.JSONDecodeError:
                 self._logger.error("Invalid update command format")
 
     def run(self):
         self.publisher.connect()
         self.subscriber.connect()
-        self.subscriber.subscribe("update", 2)
+        self.subscriber.subscribe("update/embedding", 2)
 
         while not self.publisher.connected or not self.subscriber.connected:
             time.sleep(1)
