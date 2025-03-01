@@ -7,6 +7,8 @@ gate2 = Gate(
     mqtt_port=1883,
     mqtt_username="mosquitto",
     mqtt_password="mosquitto",
+    update_url="https://files.testfile.org/PDF/",
+    update_save_path="gate2/update",
     logging_level=logging.DEBUG,
 )
 gate2.run()

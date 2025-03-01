@@ -4,113 +4,22 @@ import logging
 import time
 from datetime import datetime
 import json
-
-
-def face_detected():
-    """
-    TODO: This function is a infinte loop that waits for a face to be detected
-    """
-    while True:
-        if input("Face detected? (y/n)").lower() == "y":
-            return True
-
-
-def open_gate(id):
-    """
-    TODO: This function will open the gate
-    """
-    print(f"Gate {id} opened")
-
-
-def face_verified():
-    """
-    TODO: This function is a infinte loop that waits for a face to be verified (after few tries?),
-    it should return personnel ID if the face is verified, None otherwise
-    """
-    while True:
-        x = input("Face verified? (y/n)")
-        if x.lower() == "y":
-            return "personnel_id"
-        else:
-            return None
-
-
-def face_verified_with_id(personnel_id):
-    """
-    TODO: This function is a infinte loop that waits for a face to be verified with personnel ID,
-    it should return True if the face is verified
-    """
-    while True:
-        x = input(f"Face verified with personnel ID {personnel_id}? (y/n)")
-        if x.lower() == "y":
-            return True
-        else:
-            return False
-
-
-def voice_verified(personnel_id):
-    """
-    TODO: This function is a infinte loop that waits for a voice to be verified with personnel ID,
-    it should return True if the face is verified
-    """
-    while True:
-        x = input(f"Voice verified with personnel ID {personnel_id}? (y/n)")
-        if x.lower() == "y":
-            return True
-        else:
-            return False
-
-
-def personnel_passed():
-    """
-    TODO: This function is a infinte loop that waits for the personnel to pass through the
-    gate, it should return True if the personnel has passed
-    """
-    while True:
-        x = input("Personnel passed? (y/n)")
-        if x.lower() == "y":
-            return True
-
-
-def close_gate(id):
-    """
-    TODO: This function will close the gate
-    """
-    print(f"Gate {id} closed")
-
-
-def mantrap_scan():
-    """
-    TODO: This function is a infinte loop that waits for the mantrap to scan the personnel,
-    if there is multiple personnel, it should return False, True otherwise
-    """
-    while True:
-        x = input("Only one personnel in mantrap? (y/n)")
-        if x.lower() == "y":
-            return True
-        else:
-            return False
-
-
-def capture_intruder():
-    """
-    TODO: This function will capture the intruder and return the image buffer
-    """
-    print("Intruder captured")
-    return "image_buffer"
-
-
-def alert_buzzer_and_led():
-    """
-    TODO: This function will alert the buzzer and LED (Beep and Blink once and delay for 1 second)
-    """
-    time.sleep(1)
-    print("Buzzer and LED alerted")
+from gate.update import UpdateDownloader
+from queue import Queue
+from gate.example import *
 
 
 class Gate:
     def __init__(
-        self, type, mqtt_broker, mqtt_port, mqtt_username, mqtt_password, logging_level
+        self,
+        type,
+        mqtt_broker,
+        mqtt_port,
+        mqtt_username,
+        mqtt_password,
+        update_url,
+        update_save_path,
+        logging_level,
     ):
         self.last_logged_state = None
         self.current_status = None
@@ -162,15 +71,56 @@ class Gate:
             logging_level,
         )
         self.personnel_id = None
+        self.is_busy = False
+        self.update_thread = None
+        self.update_url = update_url
+        self.update_save_dir = update_save_path
+        self.update_queue = Queue()
 
     def _log_state(self, state_number):
         """Log state only if it has changed"""
         if state_number != self.last_logged_state:
             self._logger.info(f"State {state_number}")
             self.last_logged_state = state_number
+        # If the state is not None or 1, the system is busy
+        self.is_busy = state_number not in [None, 1]
+
+    def _handle_update(self, embedding_name):
+        """Handle the update process in a separate thread"""
+        if self.is_busy:
+            self._logger.info(f"System is busy, queueing update for {embedding_name}")
+            self.update_queue.put(embedding_name)
+            return True
+
+        if self.update_thread and self.update_thread.is_alive():
+            self._logger.warning("Update already in progress")
+            return False
+
+        def update_callback(success):
+            if success:
+                self._logger.info("Update completed successfully")
+            else:
+                self._logger.error("Update failed")
+            self.update_thread = None
+
+        self.update_thread = UpdateDownloader(
+            f"{self.update_url}{embedding_name}",
+            f"{self.update_save_dir}",
+            update_callback,
+        )
+        self.update_thread.start()
+        return True
+
+    def _process_pending_updates(self):
+        """Process any pending updates in the queue"""
+        if not self.update_queue.empty() and not self.is_busy:
+            embedding_name = self.update_queue.get()
+            self._logger.info(f"Processing queued update for {embedding_name}")
+            self._handle_update(embedding_name)
 
     def state_1(self):
         self._log_state(1)
+        self._process_pending_updates()
         if face_detected():
             self.current_status = 2  # move to state 2
 
@@ -280,6 +230,8 @@ class Gate:
                 2,
             )
             self.current_status = None  # gate 1 should handle the rest (State 1 to 7)
+            self._log_state(None)
+            self._process_pending_updates()
 
     def gate_1_subscribe_callback(self, topic, text_payload, raw_payload):
         """
@@ -310,6 +262,16 @@ class Gate:
             if json.loads(text_payload)["type"] == "diff":
                 self.current_status = 6  # move to state 6
 
+        # Handle update command
+        if topic == "update":
+            try:
+                payload = json.loads(text_payload)
+                if "embedding" in payload:
+                    embedding_name = payload["embedding"]
+                    self._handle_update(embedding_name)
+            except json.JSONDecodeError:
+                self._logger.error("Invalid update command format")
+
     def gate_2_subscribe_callback(self, topic, text_payload, raw_payload):
         """
         Callback function for the subscriber to handle messages from Gate 1
@@ -326,9 +288,20 @@ class Gate:
                 self._logger.info(f"Personnel ID: {self.personnel_id}")
                 self.current_status = 8  # move to state 8
 
+        # Handle update command
+        if topic == "update":
+            try:
+                payload = json.loads(text_payload)
+                if "embedding" in payload:
+                    embedding_name = payload["embedding"]
+                    self._handle_update(embedding_name)
+            except json.JSONDecodeError:
+                self._logger.error("Invalid update command format")
+
     def run(self):
         self.publisher.connect()
         self.subscriber.connect()
+        self.subscriber.subscribe("update", 2)
 
         while not self.publisher.connected or not self.subscriber.connected:
             time.sleep(1)
