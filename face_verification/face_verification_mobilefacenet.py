@@ -37,7 +37,7 @@ def get_tflite_interpreter(model_path='mobilefacenet.tflite'):
         print("Model loaded successfully.")
     return _interpreter
 
-def detect_face(frame, model_selection=1, min_detection_confidence=0.7):
+def detect_face(frame, model_selection=0, min_detection_confidence=0.7):
     """
     Detect faces in a frame using MediaPipe
     
