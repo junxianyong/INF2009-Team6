@@ -491,6 +491,9 @@ def wait_for_face_and_verify(camera_id=0, database_path="face_embeddings.pkl",
                 if result:
                     print("Verification successful!")
                     return result
+                elif attempts == max_attempts:
+                    print("Max attempts reached.")
+                    return None
                 else:
                     print(f"Verification failed. {'Trying again...' if attempts < max_attempts else 'Max attempts reached.'}")
                     # Small delay before next attempt
