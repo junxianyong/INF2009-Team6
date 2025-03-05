@@ -9,9 +9,6 @@ from scipy.spatial.distance import cosine
 import time
 import mediapipe as mp
 
-import tensorflow as tf
-tf.get_logger().setLevel('ERROR')  # Suppress warnings and info logs
-
 # Initialize MediaPipe models
 mp_face_detection = mp.solutions.face_detection
 mp_drawing = mp.solutions.drawing_utils
@@ -534,5 +531,10 @@ def capture_face_demo():
 
 # The module can be imported without running the demo
 if __name__ == "__main__":
+    # Capture a face and save it to a file called "junxian.jpg"
     capture_face_demo()
+
+    # Run the demo function
+    # Which will build embeddings from the folder "saved_faces"
+    # And then wait for a face to appear and verify it
     demo()
