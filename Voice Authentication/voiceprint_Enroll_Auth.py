@@ -1,6 +1,7 @@
 import pickle
 from record_audio import record_audio
 from audio_feature_extraction import extract_features, extract_words, hashString
+from scipy.spatial.distance import cosine
 import os
 import numpy as np
 import time
@@ -40,7 +41,7 @@ def enroll_user(user_name, num_samples=3):
 
         
 
-def authenticate_user(user_name, threshold=20):
+def authenticate_user(user_name, linear_threshold=20, cos_threshold=0.95):
     test_filename = "test_sample.wav"
     record_audio(test_filename)
 
@@ -58,17 +59,26 @@ def authenticate_user(user_name, threshold=20):
 
     # Calculate Euclidean distance of test features with each enrolled voiceprint
     distances = [np.linalg.norm(test_features - sample["features"]) for sample in enrolled_data]
+    similarities = [1 - cosine(test_features, sample["features"]) for sample in enrolled_data]
+    
+
 
     # Calculate average distance
     avg_distance = np.mean(distances)
+
+    # Calculate average similarity
+    avg_similarity = np.mean(similarities)
+    
 
     # Check if the hashed words from the test sample match any enrolled sample's hash.
     hash_matches = [test_hashed_words == sample["hashed_words"] for sample in enrolled_data]
 
     print(f"Distance: {avg_distance}")
+    print(f"Similarity: {avg_similarity}")
+
     os.remove(test_filename)
 
-    if avg_distance < threshold and any(hash_matches):
+    if avg_distance < linear_threshold and avg_similarity > cos_threshold and any(hash_matches):
         print("Authentication successful!")
         return True
     else:
@@ -80,8 +90,8 @@ if __name__ == "__main__":
     USER_TO_ENROLL = "Krabby"
     USER_TO_AUTH = "Krabby"
 
-    print(f"Enrolling now {USER_TO_ENROLL} now")
-    enroll_user(USER_TO_ENROLL)
+    #print(f"Enrolling now {USER_TO_ENROLL} now")
+    #enroll_user(USER_TO_ENROLL)
 
     time.sleep(2)
     print(f"Authenticating {USER_TO_AUTH} now")
