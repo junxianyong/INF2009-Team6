@@ -2,6 +2,7 @@ import pickle
 from record_audio import record_audio
 from audio_feature_extraction import extract_features, extract_words, hashString
 from scipy.spatial.distance import cosine
+from sklearn.metrics.pairwise import cosine_similarity
 import os
 import numpy as np
 import time
@@ -42,12 +43,8 @@ def enroll_user(user_name, num_samples=3):
         
 
 def authenticate_user(user_name, linear_threshold=20, cos_threshold=0.95):
-    test_filename = "test_sample.wav"
-    record_audio(test_filename)
 
-    test_features = extract_features(test_filename)
-    test_hashed_words = hashString(extract_words(test_filename))
-
+    # Load enrolled voiceprints
     try:
         with open(f"{user_name}_voiceprint.pkl", "rb") as f:
             enrolled_data = pickle.load(f)
@@ -55,13 +52,19 @@ def authenticate_user(user_name, linear_threshold=20, cos_threshold=0.95):
         print("User not found!")
         return False
 
-    # Compare test features with stored voiceprints
+    # Record test sample
+    test_filename = "test_sample.wav"
+    record_audio(test_filename)
 
+    # Extract features from test sample
+    test_features = extract_features(test_filename)
+    test_hashed_words = hashString(extract_words(test_filename))
+
+
+    # Compare test features with stored voiceprints
     # Calculate Euclidean distance of test features with each enrolled voiceprint
     distances = [np.linalg.norm(test_features - sample["features"]) for sample in enrolled_data]
-    similarities = [1 - cosine(test_features, sample["features"]) for sample in enrolled_data]
-    
-
+    similarities = cosine_similarity([test_features], [sample["features"] for sample in enrolled_data])
 
     # Calculate average distance
     avg_distance = np.mean(distances)
@@ -69,7 +72,6 @@ def authenticate_user(user_name, linear_threshold=20, cos_threshold=0.95):
     # Calculate average similarity
     avg_similarity = np.mean(similarities)
     
-
     # Check if the hashed words from the test sample match any enrolled sample's hash.
     hash_matches = [test_hashed_words == sample["hashed_words"] for sample in enrolled_data]
 
@@ -90,8 +92,8 @@ if __name__ == "__main__":
     USER_TO_ENROLL = "Krabby"
     USER_TO_AUTH = "Krabby"
 
-    #print(f"Enrolling now {USER_TO_ENROLL} now")
-    #enroll_user(USER_TO_ENROLL)
+    # print(f"Enrolling now {USER_TO_ENROLL} now")
+    # enroll_user(USER_TO_ENROLL)
 
     time.sleep(2)
     print(f"Authenticating {USER_TO_AUTH} now")
