@@ -1,5 +1,4 @@
 import time
-import VoiceAuth.Voiceprint_Enroll_Auth as voice_auth
 
 
 def face_detected():
@@ -26,7 +25,7 @@ def face_verified():
     while True:
         x = input("Face verified? (y/n)")
         if x.lower() == "y":
-            return "personnel_id"
+            return "Choon Keat"
         else:
             return None
 
@@ -50,8 +49,12 @@ def voice_verified(personnel_id):
     it should return True if the voice is verified
     """
     while True:
-        x = voice_auth.authenticate_user(personnel_id)
-        return x
+        x = input(f"Voice verified with personnel ID {personnel_id}? (y/n)")
+        if x.lower() == "y":
+            return True
+        else:
+            return False
+
 
 def personnel_passed():
     """
