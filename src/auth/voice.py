@@ -42,7 +42,9 @@ class VoiceAuth(LoggerMixin):
             audio = recognizer.record(source)
         try:
             rec = recognizer.recognize_google(audio)
-            self._logger.info("The audio file contains: " + rec)
+            self._logger.debug(
+                "The audio file contains: " + rec
+            )  # Changed from info to debug
             return rec
         except sr.UnknownValueError:
             self._logger.error("Could not understand the audio")
@@ -106,9 +108,9 @@ class VoiceAuth(LoggerMixin):
         # Load voiceprints from central file
         voiceprints = self._load_voiceprints()
         # Show all enrolled users
-        self._logger.info("Enrolled users:")
+        self._logger.debug("Enrolled users:")  # Changed from info to debug
         for user in voiceprints:
-            self._logger.info(user)
+            self._logger.debug(user)  # Changed from info to debug
         if user_name not in voiceprints:
             self._logger.error("User not found!")
             os.remove(test_filename)
@@ -131,8 +133,10 @@ class VoiceAuth(LoggerMixin):
             test_hashed_words == sample["hashed_words"] for sample in enrolled_data
         ]
 
-        self._logger.info(f"Distance: {avg_distance}")
-        self._logger.info(f"Similarity: {avg_similarity}")
+        self._logger.debug(f"Distance: {avg_distance}")  # Changed from info to debug
+        self._logger.debug(
+            f"Similarity: {avg_similarity}"
+        )  # Changed from info to debug
 
         os.remove(test_filename)
 
@@ -141,7 +145,9 @@ class VoiceAuth(LoggerMixin):
             and avg_similarity > self._cos_threshold
             and any(hash_matches)
         ):
-            self._logger.info("Authentication successful!")
+            self._logger.info(
+                "Authentication successful!"
+            )  # Kept as info - important result
             return True
         else:
             self._logger.error("Authentication failed.")
@@ -157,14 +163,14 @@ class VoiceAuth(LoggerMixin):
             frames_per_buffer=chunk,
         )
 
-        self._logger.info("Recording...")
+        self._logger.debug("Recording...")  # Changed from info to debug
         frames = []
 
         for _ in range(0, int(rate / chunk * duration)):
             data = stream.read(chunk)
             frames.append(data)
 
-        self._logger.info("Recording finished.")
+        self._logger.debug("Recording finished.")  # Changed from info to debug
 
         stream.stop_stream()
         stream.close()
@@ -182,15 +188,23 @@ if __name__ == "__main__":
     USER2_TO_ENROLL = "User 2"
     USER_TO_AUTH = "User 1"
 
-    # Create an instance of VoiceAuth
-    va = VoiceAuth(linear_threshold=100)
+    voice_auth_config = {
+        "voiceprints_file": "voiceprints.pkl",
+        "sr_rate": 44100,
+        "num_mfcc": 20,
+        "linear_threshold": 100,
+        "cos_threshold": 0.95,
+    }
 
-    va._logger.info(f"Enrolling {USER1_TO_ENROLL} now")
+    # Create an instance of VoiceAuth
+    va = VoiceAuth(voice_auth_config)
+
+    print(f"Enrolling {USER1_TO_ENROLL} now")  # Changed from info to debug
     va.enroll_user(USER1_TO_ENROLL, ["ck_sample0.wav", "ck_sample1.wav"])
 
-    va._logger.info(f"Enrolling {USER2_TO_ENROLL} now")
+    print(f"Enrolling {USER2_TO_ENROLL} now")  # Changed from info to debug
     va.enroll_user(USER2_TO_ENROLL, ["sample0.wav"])
 
     time.sleep(2)
-    va._logger.info(f"Authenticating {USER_TO_AUTH} now")
+    print(f"Authenticating {USER_TO_AUTH} now")  # Changed from info to debug
     va.authenticate_user(USER_TO_AUTH)

@@ -1,3 +1,5 @@
+from auth.motion import MotionDetector
+from auth.voice import VoiceAuth
 from gate.event_manager import GateCallbackHandler
 from gate.enum.gate_types import GateType
 from gate.state_manager import StateManager
@@ -5,7 +7,6 @@ from gate.enum.states import GateState
 from gate.update_manager import UpdateManager
 from network.mqtt.publisher import Publisher
 from network.mqtt.subscriber import Subscriber
-from auth.voice import VoiceAuth
 from utils.logger_mixin import LoggerMixin
 import time
 import logging
@@ -18,6 +19,7 @@ class Gate(LoggerMixin):
         mqtt_config,
         update_config,
         voice_auth_config,
+        motion_detector_config,
         logging_level=logging.INFO,
     ):
         self._last_logged_state = None
@@ -32,6 +34,8 @@ class Gate(LoggerMixin):
         self.callback_handler = GateCallbackHandler(self)
         if voice_auth_config:
             self.voice_auth = VoiceAuth(voice_auth_config, logging_level)
+        if motion_detector_config:
+            self.motion_detector = MotionDetector(motion_detector_config)
 
     def _log_state(self, state_number):
         """Log state only if it has changed"""

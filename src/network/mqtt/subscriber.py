@@ -1,4 +1,3 @@
-import json
 from time import sleep
 import paho.mqtt.client as mqtt
 import logging

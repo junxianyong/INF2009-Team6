@@ -60,7 +60,8 @@ class StateManager(LoggerMixin):
 
     def _handle_waiting_for_face(self):
         self.gate.process_pending_updates()
-        if face_detected():
+        # if face_detected(): # Use this line instead of the next line if you want to skip the testing the actual motion detection
+        if self.gate.motion_detector.wait_for_motion():
             self.current_state = GateState.VERIFYING_FACE
 
     def _handle_verifying_face(self):

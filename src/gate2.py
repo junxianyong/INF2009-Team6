@@ -27,6 +27,7 @@ gate2 = Gate(
     mqtt_config=mqtt_config,
     update_config=update_config,
     voice_auth_config=voice_auth_config,
+    motion_detector_config=None,  # No motion detection for gate2
     logging_level=logging.DEBUG,
 )
 gate2.run()
