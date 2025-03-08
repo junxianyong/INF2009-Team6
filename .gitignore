@@ -171,3 +171,5 @@ cython_debug/
 .pypirc
 /voiceprint/
 .direnv/
+flake.nix
+flake.lock
