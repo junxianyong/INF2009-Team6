@@ -1,3 +1,4 @@
+from auth.face import FaceVerification
 from auth.motion import MotionDetector
 from auth.voice import VoiceAuth
 from gate.event_manager import GateCallbackHandler
@@ -20,6 +21,7 @@ class Gate(LoggerMixin):
         update_config,
         voice_auth_config,
         motion_detector_config,
+        face_verification_config,
         logging_level=logging.INFO,
     ):
         self._last_logged_state = None
@@ -35,7 +37,10 @@ class Gate(LoggerMixin):
         if voice_auth_config:
             self.voice_auth = VoiceAuth(voice_auth_config, logging_level)
         if motion_detector_config:
-            self.motion_detector = MotionDetector(motion_detector_config)
+            self.motion_detector = MotionDetector(motion_detector_config, logging_level)
+        self.face_verification = FaceVerification(
+            face_verification_config, logging_level
+        )
 
     def _log_state(self, state_number):
         """Log state only if it has changed"""

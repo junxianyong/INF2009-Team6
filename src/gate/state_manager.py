@@ -60,12 +60,11 @@ class StateManager(LoggerMixin):
 
     def _handle_waiting_for_face(self):
         self.gate.process_pending_updates()
-        # if face_detected(): # Use this line instead of the next line if you want to skip the testing the actual motion detection
         if self.gate.motion_detector.wait_for_motion():
             self.current_state = GateState.VERIFYING_FACE
 
     def _handle_verifying_face(self):
-        personnel_id = face_verified()
+        personnel_id = self.gate.face_verification.wait_for_face_and_verify()
         if personnel_id:
             self.gate.personnel_id = personnel_id
             open_gate(1)
@@ -124,7 +123,11 @@ class StateManager(LoggerMixin):
         self.current_state = GateState.ALERT_ACTIVE
 
     def _handle_verifying_face_g2(self):
-        if face_verified_with_id(self.gate.personnel_id):
+        personnel_id = self.gate.face_verification.wait_for_face_and_verify()
+        self.logger.debug(
+            f"Gate 2 personnel ID: {personnel_id} vs Gate 1 personnel ID {self.gate.personnel_id} is {personnel_id == self.gate.personnel_id}"
+        )
+        if personnel_id == self.gate.personnel_id:
             self.current_state = GateState.VERIFYING_VOICE
         else:
             self.current_state = GateState.CAPTURE_MISMATCH
@@ -144,7 +147,6 @@ class StateManager(LoggerMixin):
         self.current_state = GateState.IDLE  # gate 1 takes over
 
     def _handle_verifying_voice(self):
-        # if voice_verified(self.gate.personnel_id): # Use this line instead of the next line if you want to skip the testing the actual voice verification
         if self.gate.voice_auth.authenticate_user(self.gate.personnel_id):
             open_gate(2)
             self.gate.publisher.publish(
