@@ -18,30 +18,22 @@ class Publisher(LoggerMixin):
         _logger: Logger instance for this class
     """
 
-    def __init__(
-        self,
-        broker,
-        port=1883,
-        username=None,
-        password=None,
-        logging_level=logging.INFO,
-    ):
+    def __init__(self, mqtt_config, logging_level=logging.INFO):
         """
         Initialize the MQTT Publisher.
 
         Args:
-            broker (str): MQTT broker address
-            port (int, optional): Broker port number. Defaults to 1883.
-            username (str, optional): Authentication username. Defaults to None.
-            password (str, optional): Authentication password. Defaults to None.
+            mqtt_config: A dictionary containing the MQTT configuration parameters.
             logging_level: The logging level to use. Defaults to logging.INFO.
         """
-        self._broker = broker
-        self._port = port
+        self._broker = mqtt_config["broker"]
+        self._port = mqtt_config["port"]
         self._connected = False
         self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        if username and password:
-            self._client.username_pw_set(username, password)
+        if "username" and "password" in mqtt_config:
+            self._client.username_pw_set(
+                mqtt_config["username"], mqtt_config["password"]
+            )
         self._client.on_connect = self._on_connect
         self._client.on_publish = self._on_publish
         self._logger = self._setup_logger(__name__, logging_level)

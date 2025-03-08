@@ -14,10 +14,12 @@ update_config = {
     "save_path": "gate1/update",
 }
 
+
 gate1 = Gate(
     gate_type=GateType.GATE1,
-    mqtt_broker=mqtt_config,
+    mqtt_config=mqtt_config,
     update_config=update_config,
+    voice_auth_config=None,  # No voice auth for gate1
     logging_level=logging.DEBUG,
 )
 gate1.run()

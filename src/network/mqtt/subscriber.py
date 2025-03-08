@@ -22,31 +22,24 @@ class Subscriber(LoggerMixin):
     """
 
     def __init__(
-        self,
-        broker,
-        port=1883,
-        username=None,
-        password=None,
-        on_message_callback=None,
-        logging_level=logging.INFO,
+        self, mqtt_config, on_message_callback=None, logging_level=logging.INFO
     ):
         """
         Initialize the MQTT Subscriber.
 
         Args:
-            broker (str): MQTT broker address
-            port (int, optional): Broker port number. Defaults to 1883.
-            username (str, optional): Authentication username. Defaults to None.
-            password (str, optional): Authentication password. Defaults to None.
+            mqtt_config: A dictionary containing the MQTT configuration parameters.
             on_message_callback (callable, optional): Custom message handler. Defaults to None.
             logging_level: The logging level to use. Defaults to logging.INFO.
         """
-        self._broker = broker
-        self._port = port
+        self._broker = mqtt_config["broker"]
+        self._port = mqtt_config["port"]
         self._connected = False
         self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-        if username and password:
-            self._client.username_pw_set(username, password)
+        if "username" and "password" in mqtt_config:
+            self._client.username_pw_set(
+                mqtt_config["username"], mqtt_config["password"]
+            )
         self._client.on_connect = self._on_connect
         self._client.on_message = self._on_message
         self._client.on_subscribe = self._on_subscribe

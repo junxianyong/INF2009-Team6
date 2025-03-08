@@ -5,6 +5,7 @@ from gate.enum.states import GateState
 from gate.update_manager import UpdateManager
 from network.mqtt.publisher import Publisher
 from network.mqtt.subscriber import Subscriber
+from auth.voice import VoiceAuth
 from utils.logger_mixin import LoggerMixin
 import time
 import logging
@@ -12,34 +13,25 @@ import logging
 
 class Gate(LoggerMixin):
     def __init__(
-        self, gate_type, mqtt_config, update_config, logging_level=logging.INFO
+        self,
+        gate_type,
+        mqtt_config,
+        update_config,
+        voice_auth_config,
+        logging_level=logging.INFO,
     ):
         self._last_logged_state = None
         self.gate_type = gate_type
-        self._mqtt_broker = mqtt_config["broker"]
-        self._mqtt_port = mqtt_config["port"]
-        self._mqtt_username = mqtt_config["username"]
-        self._mqtt_password = mqtt_config["password"]
         self.logger = self._setup_logger(__name__, logging_level)
-        self.publisher = Publisher(
-            self._mqtt_broker,
-            self._mqtt_port,
-            self._mqtt_username,
-            self._mqtt_password,
-            logging_level,
-        )
-        self._subscriber = Subscriber(
-            self._mqtt_broker,
-            self._mqtt_port,
-            self._mqtt_username,
-            self._mqtt_password,
-            logging_level,
-        )
+        self.publisher = Publisher(mqtt_config, logging_level)
+        self._subscriber = Subscriber(mqtt_config, logging_level)
         self.personnel_id = None
         self.is_busy = False
         self.state_manager = StateManager(self)
         self.update_manager = UpdateManager(self, update_config)
         self.callback_handler = GateCallbackHandler(self)
+        if voice_auth_config:
+            self.voice_auth = VoiceAuth(voice_auth_config, logging_level)
 
     def _log_state(self, state_number):
         """Log state only if it has changed"""

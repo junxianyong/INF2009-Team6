@@ -143,7 +143,8 @@ class StateManager(LoggerMixin):
         self.current_state = GateState.IDLE  # gate 1 takes over
 
     def _handle_verifying_voice(self):
-        if voice_verified(self.gate.personnel_id):
+        # if voice_verified(self.gate.personnel_id): # Use this line instead of the next line if you want to skip the testing the actual voice verification
+        if self.gate.voice_auth.authenticate_user(self.gate.personnel_id):
             open_gate(2)
             self.gate.publisher.publish(
                 "gate_2/status",
