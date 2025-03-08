@@ -171,7 +171,7 @@ class VoiceAuth(LoggerMixin):
         with open(self._voiceprints_file, "wb") as f:
             pickle.dump(voiceprints, f)
 
-    def enroll_user(self, user_name, wav_file=[]):
+    def enroll_user(self, user_name, wav_files=[]):
         """
         Enrolls a user by processing and storing the given audio files. The method extracts
         audio features and hashed representations of spoken words from the provided list of
@@ -181,17 +181,17 @@ class VoiceAuth(LoggerMixin):
 
         :param user_name: The name of the user being enrolled.
         :type user_name: str
-        :param wav_file: A list of paths to WAV audio files to be used for enrollment.
-        :type wav_file: list[str]
+        :param wav_files: A list of paths to WAV audio files to be used for enrollment.
+        :type wav_files: list[str]
         :return: Returns True if enrollment is successful, otherwise False.
         :rtype: bool
         """
-        if len(wav_file) < 1:
+        if len(wav_files) < 1:
             self._logger.error("No audio file provided!")
             return False
 
         enrollment_data = []
-        for wav in wav_file:
+        for wav in wav_files:
             features = self._extract_features(wav)
             words = self._extract_words(wav)
             hashed_words = self._hash_string(words)

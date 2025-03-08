@@ -1,6 +1,6 @@
 from queue import Queue
 
-from network.api.download_client import UpdateDownloader
+from network.api.client import UpdateDownloader
 from utils.logger_mixin import LoggerMixin
 
 
