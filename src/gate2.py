@@ -1,6 +1,7 @@
-from gate.gate import Gate
 import logging
+
 from gate.enum.gate_types import GateType
+from gate.gate import Gate
 
 mqtt_config = {
     "broker": "localhost",

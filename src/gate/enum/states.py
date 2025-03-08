@@ -1,8 +1,15 @@
-# gate/states.py
 from enum import Enum, auto
 
 
 class GateState(Enum):
+    """
+    Represents various states of a gate control system.
+
+    This enumeration is used to represent the sequential and logical
+    states involved in managing the operation of an automated gate
+    system. Each state corresponds to a specific step or event in the
+    gate's operation process.
+    """
     IDLE = auto()  # Was None
     WAITING_FOR_FACE = auto()  # Was 1
     VERIFYING_FACE = auto()  # Was 2

@@ -1,26 +1,83 @@
 import logging
-import cv2
-import numpy as np
 import os
 import pickle
+import time
+
+import cv2
+import mediapipe as mp
+import numpy as np
 import tensorflow as tf
 from scipy.spatial.distance import cosine
-import time
-import mediapipe as mp
+
 from utils.logger_mixin import LoggerMixin
 
 
 class FaceVerification(LoggerMixin):
+    """
+    The FaceVerification class is designed for managing and conducting face verification tasks
+    using a combination of MediaPipe for face detection and a MobileFaceNet TFLite model.
+
+    The class helps in detecting faces from image frames, extracting and preprocessing face crops,
+    computing face embeddings, saving embeddings to a database, and performing face recognition
+    using similarity comparison against saved embeddings. Additionally, it supports building a
+    face recognition database from individual image files.
+
+    The class finds applications in systems requiring face-based authentication or recognition.
+
+    :ivar mp_face_detection: MediaPipe face detection module.
+    :type mp_face_detection: Any
+    :ivar mp_drawing: MediaPipe drawing utilities.
+    :type mp_drawing: Any
+    :ivar model_path: Path to the MobileFaceNet TFLite model file.
+    :type model_path: str
+    :ivar database_path: Path to the face embedding database file.
+    :type database_path: str
+    :ivar model_selection: Model selection configuration for MediaPipe face detection.
+    :type model_selection: int
+    :ivar min_detection_confidence: Minimum confidence required for detection via MediaPipe.
+    :type min_detection_confidence: float
+    :ivar padding: Padding factor added around detected face bounding boxes.
+    :type padding: float
+    :ivar face_required_size: Target size (width, height) for extracted face images.
+    :type face_required_size: tuple[int, int]
+    :ivar target_size: Image size (width, height) required as model input.
+    :type target_size: tuple[int, int]
+    :ivar verification_threshold: Threshold value for similarity used during verification.
+    :type verification_threshold: float
+    :ivar verification_timeout: Timeout interval for the face verification process.
+    :type verification_timeout: float
+    :ivar verification_max_attempts: Maximum number of attempts allowed for verification.
+    :type verification_max_attempts: int
+    :ivar camera_id: ID of the camera used for capturing frames during verification.
+    :type camera_id: int
+    :ivar logger: Instance of logger used for logging messages.
+    :type logger: logging.Logger
+    :ivar _interpreter: TensorFlow Lite interpreter for executing the MobileFaceNet model.
+    :type _interpreter: tf.lite.Interpreter or None
+    """
+
     def __init__(
-        self,
-        face_verification_config,
-        logging_level=logging.INFO,
+            self,
+            face_verification_config,
+            logging_level=logging.INFO,
     ):
         """
-        Initialize the FaceVerification class with configurable parameters.
+        Initializes the FaceVerification class with a specified configuration for face
+        verification and sets up logging for the instance.
 
-        Args:
-            face_verification_config (dict): Dictionary of configuration parameters.
+        The constructor takes in a configuration dictionary and logging level to set up
+        various attributes required for face detection, verification, and logging. It
+        loads paths and parameters from the configuration, prepares MediaPipe utilities
+        for face detection, and initializes configurable properties of the system.
+
+        :param face_verification_config: A dictionary containing face verification
+            system configuration. This includes paths, detection parameters, and
+            verification settings such as thresholds, timeout, and maximum attempts.
+        :type face_verification_config: dict
+
+        :param logging_level: The logging level for the instance logger. Defaults to
+            ``logging.INFO``.
+        :type logging_level: int or logging level
         """
         self.mp_face_detection = mp.solutions.face_detection
         self.mp_drawing = mp.solutions.drawing_utils
@@ -42,15 +99,20 @@ class FaceVerification(LoggerMixin):
             "verification_max_attempts"
         ]
         self.camera_id = face_verification_config["camera_id"]
-        self.logger = self._setup_logger(__name__, logging_level)
+        self.logger = self.setup_logger(__name__, logging_level)
         self._interpreter = None
 
     def get_tflite_interpreter(self):
         """
-        Load the MobileFaceNet TFLite model (lazily initialized).
+        Obtains the TensorFlow Lite interpreter for the MobileFaceNet model.
 
-        Returns:
-            TFLite interpreter instance.
+        This method initializes and returns a TensorFlow Lite Interpreter object
+        for the MobileFaceNet model. If the interpreter is not already created, it
+        loads the model from the specified path, allocates tensors, and logs the
+        progress during the initialization.
+
+        :return: TensorFlow Lite interpreter for the MobileFaceNet model.
+        :rtype: tf.lite.Interpreter
         """
         if self._interpreter is None:
             self.logger.info("Loading MobileFaceNet TFLite model...")
@@ -61,19 +123,25 @@ class FaceVerification(LoggerMixin):
 
     def detect_face(self, frame):
         """
-        Detect faces in a frame using MediaPipe.
+        Detects a single face in the given frame using the Mediapipe face detection model
+        and returns the bounding box coordinates of the detected face. The bounding box
+        coordinates are computed based on the relative bounding box data provided by
+        the detection results and scaled to the original frame dimensions. If no face
+        is detected, None is returned.
 
-        Args:
-            frame (ndarray): Input image frame (BGR format).
+        :param frame: A NumPy array representing the input video frame in BGR color
+            format. Typically, this is a frame extracted from a video stream or a
+            single image.
 
-        Returns:
-            Tuple (x, y, width, height) of detected face or None if no face detected.
+        :return: A tuple (x, y, width, height) indicating the top-left corner (x, y)
+            and the width and height of the bounding box of the detected face in pixel
+            coordinates. Returns None if no detection is made.
         """
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         with self.mp_face_detection.FaceDetection(
-            model_selection=self.model_selection,
-            min_detection_confidence=self.min_detection_confidence,
+                model_selection=self.model_selection,
+                min_detection_confidence=self.min_detection_confidence,
         ) as face_detection:
             results = face_detection.process(frame_rgb)
 
@@ -92,14 +160,16 @@ class FaceVerification(LoggerMixin):
 
     def extract_face(self, frame, face_location):
         """
-        Extract a face from the frame using padding and resize it.
+        Extracts a face region from the provided video frame, using the given face location and
+        applies resizing with additional padding. This method determines the bounding box of
+        the detected face based on face location coordinates, adjusts for padding, and ensures
+        coordinates are within frame bounds. Finally, it resizes the extracted face to
+        desired dimensions.
 
-        Args:
-            frame (ndarray): Input image frame.
-            face_location (tuple): (x, y, width, height) of detected face.
-
-        Returns:
-            Extracted face image resized to the required size.
+        :param frame: The video frame containing the face region.
+        :param face_location: Tuple containing the (x, y) coordinates, width, and height
+            of the detected face region within the frame.
+        :return: Cropped and resized face image as a numpy array.
         """
         x, y, width, height = face_location
         h, w, _ = frame.shape
@@ -119,13 +189,17 @@ class FaceVerification(LoggerMixin):
 
     def preprocess_face(self, face_img):
         """
-        Preprocess the face image for model input.
+        Preprocesses an input face image for further analysis. The function ensures
+        the input image meets the target size requirements and applies normalization
+        operations to prepare the image. These preprocessing steps include resizing,
+        adjusting the color space, and normalization to a specific scale. The result
+        is a numpy array suitable for processing in machine learning or deep learning
+        pipelines.
 
-        Args:
-            face_img (ndarray): Face image in BGR format.
-
-        Returns:
-            Preprocessed face image suitable for model input.
+        :param face_img: The input face image represented as a numpy array in BGR
+            color space.
+        :return: A preprocessed face image as a numpy array with normalized
+            pixel values, suitable for further model input.
         """
         if face_img.shape[:2] != self.target_size:
             face_img = cv2.resize(face_img, self.target_size)
@@ -139,13 +213,15 @@ class FaceVerification(LoggerMixin):
 
     def get_face_embedding(self, face_img):
         """
-        Get embedding from a face image.
+        Computes the facial embedding for a given face image. The function utilizes a
+        TensorFlow Lite interpreter to extract the embedding from the given image
+        input, normalizes the embedding vector, and returns it as a flattened array.
 
-        Args:
-            face_img (ndarray): Preprocessed face image.
-
-        Returns:
-            Face embedding vector (L2 normalized).
+        :param face_img: A numpy array representing the input face image. The array
+            should adhere to the expected input format required by the TensorFlow Lite
+            model. Its dimensions and data type should match the input details obtained
+            from the model interpreter.
+        :return: A 1D numpy array representing the normalized facial embedding vector.
         """
         interpreter = self.get_tflite_interpreter()
         input_details = interpreter.get_input_details()
@@ -160,13 +236,13 @@ class FaceVerification(LoggerMixin):
 
     def save_face_embeddings(self, embeddings_dict):
         """
-        Save face embeddings to a database file.
+        Saves face embeddings to a file, merging them with any pre-existing embeddings.
+        Updates the embeddings dictionary stored in a file at the given database path using
+        serialization. Ensures old embeddings are preserved and new embeddings are added.
 
-        Args:
-            embeddings_dict (dict): Dictionary of {name: embedding_vector}.
-
-        Returns:
-            True if saved successfully, False otherwise.
+        :param embeddings_dict: A dictionary where keys are identifiers (e.g., names or IDs)
+                                and values are their corresponding embeddings.
+        :return: A boolean indicating whether the operation was successful.
         """
         try:
             existing_embeddings = {}
@@ -189,10 +265,19 @@ class FaceVerification(LoggerMixin):
 
     def load_face_embeddings(self):
         """
-        Load face embeddings from the database file.
+        Loads face embeddings from a database file and returns the data.
 
-        Returns:
-            Dictionary of {name: embedding_vector} or empty dict if file not found.
+        The method attempts to load a serialized embeddings database file
+        from the specified path. If the file does not exist, a warning is logged
+        and an empty dictionary is returned. If there is an error during the file
+        loading or deserialization process, the error is logged and an empty
+        dictionary is returned.
+
+        :raises Exception: If an error occurs during file deserialization.
+
+        :return: A dictionary containing loaded face embeddings or an empty dictionary
+                 if the database file is not found or an error occurs.
+        :rtype: dict
         """
         if not os.path.exists(self.database_path):
             self.logger.warning(f"Embedding database not found: {self.database_path}")
@@ -208,14 +293,21 @@ class FaceVerification(LoggerMixin):
 
     def build_embedding_from_image(self, img_path, person_name):
         """
-        Build an embedding from a single image and save it to the database.
+        Generates and stores a face embedding vector from an image by performing
+        face detection, extraction, preprocessing, and embedding vector computation.
 
-        Args:
-            img_path (str): Path to the input image.
-            person_name (str): Name of the person in the image.
+        This method processes a given image to detect a face and extracts features
+        associated with the identified individual. It then saves the resultant embedding
+        vector, tagged with the provided person's name, in the embeddings dictionary.
 
-        Returns:
-            True if embedding was successfully built and saved, False otherwise.
+        :param img_path: The file path to the image which is to be processed.
+        :type img_path: str
+        :param person_name: The name of the person associated with the image.
+        :type person_name: str
+        :return: A boolean indicating whether the embedding computation and saving were
+            successful. It returns False in case of any errors or issues during
+            processing.
+        :rtype: bool
         """
         interpreter = self.get_tflite_interpreter()
 
@@ -246,13 +338,26 @@ class FaceVerification(LoggerMixin):
 
     def verify_face(self, frame=None):
         """
-        Verify a face against the database.
+        Performs face verification by detecting a face in an input frame or capturing one
+        from a camera feed, and comparing it to a stored database of face embeddings.
 
-        Args:
-            frame (ndarray): Input image frame (if None, capture from the default camera).
+        If a frame is not provided, the method attempts to capture one from the camera
+        specified by the `camera_id` attribute. Each detected face is processed and
+        compared to the embeddings stored in the internal database to find the best match.
 
-        Returns:
-            Tuple (name, similarity) if recognized, or None.
+        The comparison is done using cosine similarity between the face embedding of the
+        query face and those of the stored embeddings. Only matches that exceed the
+        `verification_threshold` are considered valid.
+
+        :param frame:
+            Optional input frame to verify. If not provided, a frame will be captured from
+            the camera specified by `camera_id`.
+
+        :return:
+            The method returns a tuple `(best_match, best_similarity)` if a match is
+            found, where `best_match` is the name of the recognized person and
+            `best_similarity` is the similarity score. Returns `None` if no match
+            is found or if any error occurs during the process.
         """
         embeddings_db = self.load_face_embeddings()
         if not embeddings_db:
@@ -321,10 +426,22 @@ class FaceVerification(LoggerMixin):
 
     def wait_for_face_and_verify(self):
         """
-        Wait for a face to appear, then verify it with multiple attempts.
+        Waits for a face to appear in the camera's view and verifies the detected face against
+        a predefined criterion. The process continues until a successful verification, the
+        maximum number of verification attempts is reached or the timeout expires.
 
-        Returns:
-            Tuple (name, similarity) if recognized, or None.
+        This method initializes the camera, continuously captures frames, detects faces, and
+        executes a verification process. If a face is successfully verified, the recognized
+        identity is returned. On failure, an appropriate log is generated, and the method
+        returns None.
+
+        :param self: Instance of the class that includes logger, camera parameters,
+            and verification configurations.
+
+        :returns: The recognized identity as a string if verification is successful. If
+            no face is detected within the timeout or the verification process fails multiple
+            times, it returns None.
+        :rtype: Optional[str]
         """
         self.logger.info(f"Initializing camera {self.camera_id}...")
         cap = cv2.VideoCapture(self.camera_id)
@@ -342,8 +459,8 @@ class FaceVerification(LoggerMixin):
 
         try:
             while (
-                time.time() - start_time < self.verification_timeout
-                and attempts < self.verification_max_attempts
+                    time.time() - start_time < self.verification_timeout
+                    and attempts < self.verification_max_attempts
             ):
                 ret, frame = cap.read()
                 if not ret:
@@ -401,6 +518,7 @@ if __name__ == "__main__":
 
     face_verification = FaceVerification(face_verification_config)
 
+
     def detect_and_capture_face(face_verifier, output_folder, filename=None):
         """
         Capture an image using the webcam and save it.
@@ -446,6 +564,7 @@ if __name__ == "__main__":
         face_verifier.logger.info(f"Image saved to {output_path}")
 
         return output_path
+
 
     while True:
         if input("Press Enter to capture face or 'q' to quit...").lower() == "q":
