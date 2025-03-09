@@ -2,7 +2,7 @@
 
 fastapi==0.115.11
 librosa==0.10.2.post1
-mediapipe==0.10.21
+mediapipe==0.10.9
 numpy==1.26.4
 opencv-python==4.11.0.86
 paho-mqtt==2.1.0
