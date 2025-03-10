@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from os import getenv
 
 # Load database configuration from environment variables
-load_dotenv(".env.template.local" if getenv("FLASK_ENV") == "development" else ".env.template")
+load_dotenv(".env.local" if getenv("FLASK_ENV") == "development" else ".env")
 config = {
     "dbname": getenv("DB_NAME"),
     "user": getenv("DB_USER"),
