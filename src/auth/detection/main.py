@@ -7,10 +7,10 @@ from typing import Dict
 import cv2
 import numpy as np
 
-from detect import Detect
-from streams import VideoStream
-from tracker import Tracker
-from utils import direction_config
+from auth.detection.detect import Detect
+from auth.detection.streams import VideoStream
+from auth.detection.tracker import Tracker
+from auth.detection.utils import direction_config
 from utils.logger_mixin import LoggerMixin
 
 

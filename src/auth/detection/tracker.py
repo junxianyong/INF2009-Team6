@@ -8,7 +8,7 @@ from typing import Callable, List, Optional, Tuple
 import cv2
 import numpy as np
 
-from sort import Sort
+from auth.detection.sort import Sort
 from utils import check_direction, is_intersect
 
 
