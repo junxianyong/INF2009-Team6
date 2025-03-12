@@ -1,6 +1,7 @@
 import logging
 import time
 
+from auth.detection.main import IntruderDetector
 from auth.face import FaceVerification
 from auth.motion import MotionDetector
 from auth.voice import VoiceAuth
@@ -64,6 +65,7 @@ class Gate(LoggerMixin):
             voice_auth_config,
             motion_detector_config,
             face_verification_config,
+            intruder_detection_config,
             logging_level=logging.INFO,
     ):
         """
@@ -73,7 +75,7 @@ class Gate(LoggerMixin):
         motion detection, and face verification through respective configurations.
 
         :param gate_type: Type of the gate (e.g., turnstile, sliding gate) to be configured.
-        :type gate_type: str
+        :type gate_type: GateType
         :param mqtt_config: Configuration details for the MQTT broker, enabling messaging
                             and communication between components.
         :type mqtt_config: dict
@@ -110,6 +112,8 @@ class Gate(LoggerMixin):
         self.face_verification = FaceVerification(
             face_verification_config, logging_level
         )
+        if intruder_detection_config:
+            self.intruder_detector = IntruderDetector(intruder_detection_config, logging_level)
 
     def _log_state(self, state_number):
         """

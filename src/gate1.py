@@ -42,6 +42,16 @@ face_verification_config = {
     "camera_id": 0,
 }
 
+intruder_detection_config = {
+    "camera_index": 0,
+    "model": "./models/yolov5/yolov5n-fp16.tflite",
+    "confidence": 0.2,
+    "iou_threshold": 0.2,
+    "directions": {"total": None, "inside": "bottom", "outside": "top"},
+    "duration": 30,
+    "sensitivity": 0.05
+}
+
 gate1 = Gate(
     gate_type=GateType.GATE1,
     mqtt_config=mqtt_config,
@@ -49,6 +59,7 @@ gate1 = Gate(
     voice_auth_config=None,  # No voice auth for gate1
     motion_detector_config=motion_detector_config,
     face_verification_config=face_verification_config,
+    intruder_detection_config=intruder_detection_config,
     logging_level=logging.DEBUG,
 )
 gate1.run()

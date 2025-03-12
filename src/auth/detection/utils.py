@@ -20,9 +20,9 @@ direction_config = {
 
 
 def check_direction(
-    current_center: List[int],
-    prev_center: List[int],
-    direction: Tuple[bool] = None,
+        current_center: List[int],
+        prev_center: List[int],
+        direction: Tuple[bool] = None,
 ):
     """If direction is specified, check whether the direction of target is correct.
 

@@ -14,9 +14,9 @@ class Detect(object):
     """YOLOv5 tflite detect model."""
 
     def __init__(
-        self,
-        model_file: str,
-        conf_thr: float,
+            self,
+            model_file: str,
+            conf_thr: float,
     ):
         # Load model to memory.
         self.interpreter = Interpreter(model_file)

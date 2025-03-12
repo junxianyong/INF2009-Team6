@@ -47,6 +47,7 @@ gate2 = Gate(
     voice_auth_config=voice_auth_config,
     motion_detector_config=None,  # No motion detection for gate2
     face_verification_config=face_verification_config,
+    intruder_detection_config=None,
     logging_level=logging.DEBUG,
 )
 gate2.run()

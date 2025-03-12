@@ -201,7 +201,7 @@ class StateManager(LoggerMixin):
             2,
         )
 
-        if mantrap_scan():
+        if self.gate.intruder_detector.run_tracking():
             self.gate.publisher.publish(
                 "verified", json.dumps({"personnel_id": self.gate.personnel_id}), 2
             )
@@ -242,13 +242,13 @@ class StateManager(LoggerMixin):
         :raises RuntimeError: If image capture fails or the alert publishing process
             encounters an exception.
         """
-        buffer = capture_intruder()
+        buffer = self.gate.intruder_detector.capture_intruder()
         self.gate.publisher.publish(
             "alert",
             json.dumps(
                 {
                     "type": "multi",
-                    "image": buffer,
+                    "image": buffer if buffer else "Error capturing image.",
                 }
             ),
             2,
@@ -290,13 +290,13 @@ class StateManager(LoggerMixin):
 
         :return: None
         """
-        buffer = capture_intruder()
+        buffer = self.gate.intruder_detector.capture_intruder()
         self.gate.publisher.publish(
             "alert",
             json.dumps(
                 {
                     "type": "diff",
-                    "image": buffer,
+                    "image": buffer if buffer else "Error capturing image.",
                 }
             ),
             2,

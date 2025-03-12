@@ -14,10 +14,10 @@ from utils import check_direction, is_intersect
 
 class Tracker(object):
     def __init__(
-        self,
-        border: List[Tuple[int]],
-        directions: Tuple[bool],
-        count_callback: Optional[Callable] = None,
+            self,
+            border: List[Tuple[int]],
+            directions: Tuple[bool],
+            count_callback: Optional[Callable] = None,
     ):
         """Constructor of Tracker.
 
@@ -37,11 +37,11 @@ class Tracker(object):
         self.COLORS = np.random.randint(0, 255, size=(200, 3), dtype="uint8")
 
     def _is_count(
-        self,
-        center: Tuple[int],
-        center_prev: Tuple[int],
-        border: List[Tuple[int]],
-        key: str,
+            self,
+            center: Tuple[int],
+            center_prev: Tuple[int],
+            border: List[Tuple[int]],
+            key: str,
     ) -> bool:
         """Check whether count or not.
 
