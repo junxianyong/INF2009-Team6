@@ -121,7 +121,7 @@ def handle_command_door(mantrap_id, action):
     from utils.mqtt import publish_mqtt
     publish_mqtt("command", dumps({"command": action}))
 
-    return {"message": f"Mantrap {'opened' if action == 'open' else 'closed'} successfully"}
+    return {"message": f"Command sent to {action} mantrap"}
 
 
 def handle_gate_status(topic, payload):

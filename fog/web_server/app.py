@@ -2,6 +2,8 @@ from datetime import timedelta
 from os import getenv
 
 from flask import Flask, session
+from flask_cors import CORS
+
 from auth.auth import handle_login, handle_logout, require_roles
 from biometrics.biometrics import handle_enroll_biometrics, handle_get_embeddings, handle_delete_biometrics
 from log.log import handle_get_logs, handle_get_log_file
@@ -12,6 +14,9 @@ from utils.mqtt import connect_mqtt
 app = Flask(__name__)
 app.secret_key = getenv("SECRET_KEY")
 connect_mqtt()
+
+# Allow cors
+CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
 
 @app.before_request
 def set_session_timeout():
