@@ -99,6 +99,10 @@ def handle_update_user(user_id):
     if data.get("role", user.get("role")) == "personnel":
         data["alert_subscribed"] = False
 
+    # Unlock account request
+    if data.get("failed_attempts"):
+        data["failed_attempts"] = 0
+
     # If biometrics are already enrolled, then cannot change username
     if user.get("biometrics_enrolled") and data.get("username") and data.get("username") != user.get("username"):
         release_db(db)

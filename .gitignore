@@ -172,3 +172,5 @@ cython_debug/
 .direnv/
 flake.nix
 flake.lock
+
+!fog/web_client/app/lib

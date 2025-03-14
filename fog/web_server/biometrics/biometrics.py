@@ -61,16 +61,20 @@ def handle_enroll_biometrics(user_id):
 
     files = request.files
 
-    # Check if face and voice data exists
-    if not (face := files.get("face")):
+    # Check for 5 faces and 1 voice
+    faces = [value for key, value in files.items() if key.startswith("face")]
+    voice = files.get("voice")
+
+    if len(faces) < 5:
         return {"message": "Missing face data"}, 400
-    if not (voice := files.get("voice")):
+    if not voice:
         return {"message": "Missing voice data"}, 400
 
     # Save raw biometrics
-    face_path = join(raw_files_folder, f"{uuid4().hex}.png")
+    face_paths = [join(raw_files_folder, f"{uuid4().hex}.png") for _ in faces]
     voice_path = join(raw_files_folder, f"{uuid4().hex}.wav")
-    face.save(face_path)
+    for face_path, face in zip(face_paths, faces):
+        face.save(face_path)
     voice.save(voice_path)
 
     # Backup current embeddings
@@ -81,7 +85,7 @@ def handle_enroll_biometrics(user_id):
             pass
 
     # Build face embeddings
-    face_success = face_verification.build_embedding_from_image(face_path, user.get("username"))
+    face_success = face_verification.build_embedding_from_images(face_paths, user.get("username"))
     voice_success = voice_auth.enroll_user(user.get("username"), [voice_path])
 
     # Enrollment failed
