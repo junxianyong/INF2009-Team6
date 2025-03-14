@@ -14,7 +14,8 @@ def perform_tracking(duration=30) -> bool:
         duration=duration
     )
     print(f"Average humans detected over {duration} seconds: {avg:.2f}")
-    return avg == 1
+    # Allow for some tolerance around 1 person
+    return 0.7 <= avg <= 1.3
 
 def main():
     while True:
@@ -22,7 +23,7 @@ def main():
         if cmd.lower() == "start":
             print("Starting tracking for 30 seconds...")
             result = perform_tracking(30)
-            print("Tracking result (True if exactly 1 human detected on average):", result)
+            print("Tracking result (True if average 1 human detected on average):", result)
 
         elif cmd.lower() == "exit":
             print("Exiting.")
