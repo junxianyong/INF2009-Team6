@@ -5,6 +5,7 @@ from auth.detection.main import IntruderDetector
 from auth.face import FaceVerification
 from auth.motion import MotionDetector
 from auth.voice import VoiceAuth
+from electronic.driver import Driver
 from gate.enum.gate_types import GateType
 from gate.enum.states import GateState
 from gate.event_manager import GateCallbackHandler
@@ -66,6 +67,7 @@ class Gate(LoggerMixin):
             motion_detector_config,
             face_verification_config,
             intruder_detection_config,
+            driver_config,
             logging_level=logging.INFO,
     ):
         """
@@ -114,6 +116,7 @@ class Gate(LoggerMixin):
         )
         if intruder_detection_config:
             self.intruder_detector = IntruderDetector(intruder_detection_config, logging_level)
+        self.driver = Driver(driver_config, logging_level)
 
     def _log_state(self, state_number):
         """
