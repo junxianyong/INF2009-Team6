@@ -52,6 +52,31 @@ intruder_detection_config = {
     "sensitivity": 0.05
 }
 
+driver_config = {
+    "buzzer": {
+        "pin": 13
+    },
+    "lcd": {
+        "address": 0x27,
+        "port": 1,
+        "cols": 16,
+        "rows": 2,
+        "dotsize": 8,
+    },
+    "servo": {
+        "pin": 14,
+        "open_angle": 180,
+        "close_angle": 0,
+    },
+    "ultrasonic": {
+        "echo": 12,
+        "trigger": 18,
+        "max_distance": 4,
+        "window_size": 10,
+        "calibration_step": 30,
+    }
+}
+
 gate1 = Gate(
     gate_type=GateType.GATE1,
     mqtt_config=mqtt_config,
@@ -60,6 +85,7 @@ gate1 = Gate(
     motion_detector_config=motion_detector_config,
     face_verification_config=face_verification_config,
     intruder_detection_config=intruder_detection_config,
+    driver_config=driver_config,
     logging_level=logging.DEBUG,
 )
 gate1.run()

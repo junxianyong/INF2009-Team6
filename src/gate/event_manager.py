@@ -1,7 +1,6 @@
 import json
 
 from gate.enum.states import GateState
-from gate.example import open_gate, close_gate
 from utils.logger_mixin import LoggerMixin
 
 
@@ -105,10 +104,10 @@ class GateCallbackHandler(LoggerMixin):
         :return: None
         """
         if payload["action"] == "open":
-            open_gate(1)
+            self.gate.driver.open_gate()
             self.gate.state_manager.current_state = GateState.MANUAL_OPEN
         elif payload["action"] == "close":
-            close_gate(1)
+            self.gate.driver.close_gate()
             self.gate.state_manager.current_state = GateState.WAITING_FOR_FACE
 
     def _handle_gate2_status(self, payload):
