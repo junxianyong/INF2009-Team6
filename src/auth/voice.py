@@ -85,7 +85,6 @@ class VoiceAuth(LoggerMixin):
         with microphone as source:
             self._recognizer.adjust_for_ambient_noise(source)
             self._logger.info("Energy threshold adjusted for ambient noise.")
-            print("Energy threshold adjusted for ambient noise.")
 
     def _extract_features(self, filename) -> np.ndarray:
         """
@@ -246,6 +245,10 @@ class VoiceAuth(LoggerMixin):
         :return: Returns True if the authentication is successful, otherwise False.
         :rtype: bool
         """
+        self._adjust_for_ambient_noise()
+
+        self._logger.info("Recording audio for authentication...")
+
         test_filename = "test_sample.wav"
         self._record_audio(test_filename)
         test_features = self._extract_features(test_filename)
@@ -299,7 +302,7 @@ class VoiceAuth(LoggerMixin):
             self._logger.error("Authentication failed.")
             return False
 
-    def _record_audio(self, filename, duration=3, rate=44100, chunk=1024, channels=1):
+    def _record_audio(self, filename, duration=5, rate=44100, chunk=1024, channels=1):
         """
         Records audio using the PyAudio library and saves it to a specified file.
 
@@ -322,6 +325,10 @@ class VoiceAuth(LoggerMixin):
         :type channels: int, optional
         :return: None
         """
+        self._logger.debug("Adjusting for ambient noise...")  # Changed from info to debug
+        self._adjust_for_ambient_noise()
+
+
         audio = pyaudio.PyAudio()
         stream = audio.open(
             format=pyaudio.paInt16,
@@ -365,10 +372,12 @@ if __name__ == "__main__":
     }
 
     # Create an instance of VoiceAuth
-    va = VoiceAuth(voice_auth_config)
+    va = VoiceAuth(voice_auth_config, logging.DEBUG)
 
     print(f"Enrolling {USER1_TO_ENROLL} now")  # Changed from info to debug
-    # va.enroll_user(USER1_TO_ENROLL, ["ck_sample0.wav", "ck_sample1.wav"])
+    va._record_audio("ck_sample0.wav")
+    va._record_audio("ck_sample1.wav")
+    va.enroll_user(USER1_TO_ENROLL, ["ck_sample0.wav", "ck_sample1.wav"])
 
     print(f"Enrolling {USER2_TO_ENROLL} now")  # Changed from info to debug
     # va.enroll_user(USER2_TO_ENROLL, ["sample0.wav"])
