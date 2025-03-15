@@ -3,6 +3,12 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import mediapipe as mp
+import psutil
+import os
+import cProfile
+import pstats
+import coverage
+import tracemalloc
 
 class FaceProfiler:
     def __init__(self):
@@ -141,16 +147,37 @@ class FaceProfiler:
         return embedding.flatten()
 
 def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_method='mobilefacenet'):
-    """Profile each step of the face processing pipeline."""
+    """Profile each step of the face processing pipeline with system metrics."""
     timings = {}
+    metrics = {
+        'cpu': [],
+        'memory': [],
+        'io': {'read_bytes': 0, 'write_bytes': 0}
+    }
     
-    # Read image
+    # Start resource monitoring
+    process = psutil.Process()
+    initial_io = process.io_counters()
+    tracemalloc.start()
+    
+    # Code coverage setup
+    cov = coverage.Coverage()
+    cov.start()
+    
+    # CPU profiler setup
+    cpu_profiler = cProfile.Profile()
+    cpu_profiler.enable()
+    
+    # Read image and record initial metrics
+    metrics['cpu'].append(process.cpu_percent())
+    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)  # MB
+    
     frame = cv2.imread(image_path)
     if frame is None:
         print(f"Error: Could not read image {image_path}")
-        return None
+        return None, None
     
-    # Face detection timing
+    # Face detection timing and metrics
     start_time = time.time()
     if detector == 'mediapipe':
         face_location = profiler.detect_face_mediapipe(frame)
@@ -158,26 +185,79 @@ def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_metho
         face_location = profiler.detect_face_opencv(frame)
     timings['detection'] = time.time() - start_time
     
+    metrics['cpu'].append(process.cpu_percent())
+    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
+    
     if not face_location:
         print(f"No face detected in image using {detector}")
-        return None
+        return None, None
     
-    # Face extraction timing
+    # Face extraction timing and metrics
     start_time = time.time()
     face = profiler.extract_face(frame, face_location)
     timings['extraction'] = time.time() - start_time
     
-    # Preprocessing timing
+    metrics['cpu'].append(process.cpu_percent())
+    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
+    
+    # Preprocessing timing and metrics
     start_time = time.time()
     preprocessed_face = profiler.preprocess_face(face, embedding_method)
     timings['preprocessing'] = time.time() - start_time
     
-    # Embedding generation timing
+    metrics['cpu'].append(process.cpu_percent())
+    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
+    
+    # Embedding generation timing and metrics
     start_time = time.time()
     embedding = profiler.get_face_embedding(preprocessed_face, embedding_method)
     timings['embedding'] = time.time() - start_time
     
-    return timings
+    # Final metrics collection
+    metrics['cpu'].append(process.cpu_percent())
+    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
+    
+    # Stop profilers and collect results
+    cpu_profiler.disable()
+    cov.stop()
+    final_io = process.io_counters()
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    
+    # Calculate I/O metrics
+    metrics['io']['read_bytes'] = final_io.read_bytes - initial_io.read_bytes
+    metrics['io']['write_bytes'] = final_io.write_bytes - initial_io.write_bytes
+    metrics['peak_memory'] = peak / 1024 / 1024  # MB
+    
+    # Get CPU profiling stats
+    stats = pstats.Stats(cpu_profiler)
+    metrics['function_calls'] = stats.total_calls
+    metrics['primitive_calls'] = stats.prim_calls
+    
+    # Get code coverage
+    metrics['coverage'] = {
+        'lines_executed': len(cov.get_data().measured_files()),
+        'total_lines': sum(1 for line in open(__file__))
+    }
+    
+    return timings, metrics
+
+def print_profiling_results(timings, metrics):
+    """Print detailed profiling results including system metrics."""
+    print("\nTiming Results:")
+    print("-" * 60)
+    for step, time_taken in timings.items():
+        print(f"{step.replace('_', ' ').title():20}: {time_taken:.4f} seconds")
+    
+    print("\nSystem Metrics:")
+    print("-" * 60)
+    print(f"Average CPU Usage:      {np.mean(metrics['cpu']):6.2f}%")
+    print(f"Peak Memory Usage:      {metrics['peak_memory']:6.2f} MB")
+    print(f"Total I/O Read:         {metrics['io']['read_bytes']/1024:6.2f} KB")
+    print(f"Total I/O Write:        {metrics['io']['write_bytes']/1024:6.2f} KB")
+    print(f"Function Calls:         {metrics['function_calls']:6d}")
+    print(f"Primitive Calls:        {metrics['primitive_calls']:6d}")
+    print(f"Code Coverage:          {metrics['coverage']['lines_executed']/metrics['coverage']['total_lines']*100:6.2f}%")
 
 def compute_similarity(embedding1, embedding2):
     """Compute cosine similarity between two embeddings."""
@@ -206,6 +286,38 @@ def get_embedding_from_image(profiler, image_path, detector='mediapipe', embeddi
     
     return embedding
 
+def measure_model_load_metrics():
+    """Measure memory and CPU usage during model loading."""
+    process = psutil.Process()
+    tracemalloc.start()
+    
+    initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+    initial_cpu = process.cpu_percent()
+    initial_io = process.io_counters()
+    
+    metrics = {
+        'initial_memory': initial_memory,
+        'initial_cpu': initial_cpu,
+        'peak_memory': 0,
+        'cpu_usage': 0,
+        'io_read': 0,
+        'io_write': 0,
+        'load_time': 0
+    }
+    
+    return process, tracemalloc, initial_io, metrics
+
+def print_model_load_metrics(metrics):
+    """Print metrics related to model loading."""
+    print("\nModel Loading Metrics:")
+    print("-" * 60)
+    print(f"Memory Usage Change:    {metrics['memory_change']:6.2f} MB")
+    print(f"Peak Memory Usage:      {metrics['peak_memory']:6.2f} MB")
+    print(f"CPU Usage:             {metrics['cpu_usage']:6.2f}%")
+    print(f"I/O Read:              {metrics['io_read']/1024:6.2f} KB")
+    print(f"I/O Write:             {metrics['io_write']/1024:6.2f} KB")
+    print(f"Load Time:             {metrics['load_time']:6.2f} seconds")
+
 def main():
     print("\nInitializing face profiler...")
     profiler = FaceProfiler()
@@ -233,7 +345,10 @@ def main():
                 3: 'vgg_tflite'
             }[choice]
             
-            # Load only the selected model
+            # Start measuring metrics before model loading
+            process, tracemalloc, initial_io, metrics = measure_model_load_metrics()
+            
+            # Load the selected model
             print(f"\nLoading {embedding_method.upper()} model...")
             start_time = time.time()
             if embedding_method == 'mobilefacenet':
@@ -242,8 +357,23 @@ def main():
                 profiler.get_vgg_model()
             else:  # vgg_tflite
                 profiler.get_vgg_tflite_interpreter()
-            model_load_time = time.time() - start_time
-            print(f"Model loading time: {model_load_time:.4f} seconds\n")
+            
+            # Collect metrics after model loading
+            final_memory = process.memory_info().rss / 1024 / 1024
+            current_memory, peak_memory = tracemalloc.get_traced_memory()
+            final_io = process.io_counters()
+            
+            metrics.update({
+                'memory_change': final_memory - metrics['initial_memory'],
+                'peak_memory': peak_memory / 1024 / 1024,  # Convert to MB
+                'cpu_usage': process.cpu_percent(),
+                'io_read': final_io.read_bytes - initial_io.read_bytes,
+                'io_write': final_io.write_bytes - initial_io.write_bytes,
+                'load_time': time.time() - start_time
+            })
+            
+            tracemalloc.stop()
+            print_model_load_metrics(metrics)
 
             test_images = [
                 "saved_faces/billgates.jpg",
@@ -260,21 +390,20 @@ def main():
                 
                 # Initial run
                 print(f"\nPerforming initial {detector} + {embedding_method} run...")
-                initial_timings = profile_pipeline(profiler, test_images[0], detector, embedding_method)
+                initial_timings, initial_metrics = profile_pipeline(profiler, test_images[0], detector, embedding_method)
                 if initial_timings:
-                    print(f"\nInitial Results:")
-                    print("-" * 40)
-                    for step, time_taken in initial_timings.items():
-                        print(f"{step.replace('_', ' ').title():20}: {time_taken:.4f} seconds")
+                    print_profiling_results(initial_timings, initial_metrics)
                 
                 # Multiple runs for average
                 print(f"\nPerforming multiple {detector} + {embedding_method} runs...")
                 all_timings = []
+                all_metrics = []
                 for i, image_path in enumerate(test_images[1:], 1):
                     print(f"\nProcessing image {i}/4...")
-                    timings = profile_pipeline(profiler, test_images[i], detector, embedding_method)
+                    timings, metrics = profile_pipeline(profiler, test_images[i], detector, embedding_method)
                     if timings:
                         all_timings.append(timings)
+                        all_metrics.append(metrics)
                 
                 if all_timings:
                     avg_timings = {
