@@ -3,6 +3,7 @@ import NavBar from "@/app/(authenticated)/NavBar";
 import {Button} from "antd";
 import '@ant-design/v5-patch-for-react-19';
 import React from "react";
+import "./dashboard.css"
 
 const Layout = async ({children}: { children: React.ReactNode }) => {
 

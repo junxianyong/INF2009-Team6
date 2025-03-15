@@ -17,7 +17,7 @@ export type Logout = {
 export type GetUsers = {
   errors?: {[index: string]: string}[],
   message?: string,
-  data: {id: number, username: string, email: string, role: string, biometrics_enrolled: boolean, alert_subscribed: boolean, account_locked: boolean}[]
+  data: {id: number, username: string, email: string, role: string, biometrics_enrolled: boolean, alert_subscribed: boolean, account_locked: boolean, location: string}[]
 }
 
 export type AddUser = {
