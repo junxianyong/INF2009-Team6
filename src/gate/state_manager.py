@@ -315,16 +315,24 @@ class StateManager(LoggerMixin):
 
         :return: None
         """
-        if self.gate.voice_auth.authenticate_user(self.gate.personnel_id):
-            open_gate(2)
-            self.gate.publisher.publish(
-                "gate_2/status",
-                json.dumps({"opened": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
-                2,
-            )
-            self.current_state = GateState.WAITING_FOR_PASSAGE_G2
-        else:
-            self.current_state = GateState.CAPTURE_MISMATCH
+        retries = 0
+
+        while retries < 3:
+            if self.gate.voice_auth.authenticate_user(self.gate.personnel_id):
+                open_gate(2)
+                self.gate.publisher.publish(
+                    "gate_2/status",
+                    json.dumps({"opened": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
+                    2,
+                )
+                self.current_state = GateState.WAITING_FOR_PASSAGE_G2
+                return
+            else:
+                self.logger.warning("Voice authentication failed. Retrying...") # Log warning
+                retries += 1
+                
+        # If authentication fails after 3 retries, capture the mismatch
+        self.current_state = GateState.CAPTURE_MISMATCH
 
     def _handle_waiting_for_passage_g2(self):
         """

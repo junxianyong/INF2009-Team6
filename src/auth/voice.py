@@ -47,6 +47,7 @@ class VoiceAuth(LoggerMixin):
             self,
             voice_auth_config,
             logging_level=logging.INFO,
+            recognizer=sr.Recognizer(),
     ):
         """
         Represents the initialization of a voice authentication system that configures
@@ -68,6 +69,18 @@ class VoiceAuth(LoggerMixin):
         self._linear_threshold = voice_auth_config["linear_threshold"]
         self._cos_threshold = voice_auth_config["cos_threshold"]
         self._logger = self.setup_logger(__name__, logging_level)
+        self._recognizer = recognizer
+
+    def _adjust_for_ambient_noise(self, source):
+        """
+        Adjusts the recognizer's energy threshold based on the surrounding noise level.
+
+        This method listens for the specified audio source and adjusts the recognizer's energy
+        threshold based on the surrounding noise level. It helps in reducing false positives and
+        improving the accuracy of speech recognition.
+        """
+
+        self._recognizer.adjust_for_ambient_noise(self._recognizer.listen(source))
 
     def _extract_features(self, filename) -> np.ndarray:
         """
@@ -105,11 +118,11 @@ class VoiceAuth(LoggerMixin):
                  an empty string is returned.
         :rtype: str
         """
-        recognizer = sr.Recognizer()
+        
         with sr.AudioFile(filename) as source:
-            audio = recognizer.record(source)
+            audio = self._recognizer.record(source)
         try:
-            rec = recognizer.recognize_google(audio)
+            rec = self._recognizer.recognize_google(audio)
             self._logger.debug(
                 "The audio file contains: " + rec
             )  # Changed from info to debug
