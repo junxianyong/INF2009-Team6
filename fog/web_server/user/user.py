@@ -23,7 +23,7 @@ def handle_get_users():
 
     cursor.execute(
         f"""
-        SELECT id, username, email, role, biometrics_enrolled, alert_subscribed, 
+        SELECT id, username, email, role, biometrics_enrolled, alert_subscribed, location,
         CASE WHEN failed_attempts > {config.get("max_login_attempts")} THEN true ELSE false END AS account_locked
         FROM users
         WHERE {' AND '.join([f'{key} = %s' for key in data.keys()]) if data else ' true'}

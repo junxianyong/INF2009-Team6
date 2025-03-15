@@ -40,6 +40,7 @@ export default function Users() {
     {title: "Email", dataIndex: "email"},
     {title: "Role", dataIndex: "role"},
     {title: "Status", dataIndex: "account_locked", render: (locked: boolean, _: GetUsers["data"][number]) => locked ? <Button onClick={() => clickUnlock(_.id)}>Unlock</Button>: "Active"},
+    {title: "Location", dataIndex: "location"},
     {title: "Biometrics", dataIndex: "biometrics_enrolled", render: (enrolled: boolean, _: GetUsers["data"][number]) => !enrolled ?
         <Button onClick={() => clickEnroll(_)}>Enroll</Button>:
         <Popconfirm

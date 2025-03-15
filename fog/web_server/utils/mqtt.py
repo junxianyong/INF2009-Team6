@@ -1,4 +1,6 @@
+from json import dumps
 from os import getenv
+
 from paho.mqtt.client import Client
 
 from log.log import handle_verified, handle_alert
@@ -9,7 +11,7 @@ def on_connect(client, userdata, flags, rc):
     if rc != 0:
         raise Exception("Connection failed")
     print("Connected to MQTT Broker")
-    for topic in ["gate_1/status", "gate_2/status", "verified", "alert"]:
+    for topic in ["gate_1/status", "gate_2/status", "verified", "alert", "state"]:
         client.subscribe(topic)
 
 
@@ -23,13 +25,20 @@ def on_message(client, userdata, message):
             handle_verified(payload)
         case "alert":
             handle_alert(payload)
+        case "state":
+            if socketio_:
+                socketio_.emit("state", payload.decode("utf-8"), namespace="/api/states/listen")
+                # socketio_.start_background_task(socketio_.emit, "state", payload.decode("utf-8"), namespace="/api/states/listen")
 
 
 mqtt_client = Client(client_id="fog")
 mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_message
+socketio_ = None
 
-def connect_mqtt():
+def connect_mqtt(socketio):
+    global socketio_
+    socketio_ = socketio
     mqtt_client.connect(getenv("MQTT_BROKER"), int(getenv("MQTT_PORT")), 60)
     mqtt_client.loop_start()
 
