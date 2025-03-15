@@ -155,7 +155,7 @@ class Publisher(LoggerMixin):
         :rtype: bool
         """
         try:
-            self._logger.debug(f"Publishing to {topic} with QoS {qos}: {message}")
+            self._logger.debug(f"Publishing to {topic} with QoS {qos}")
             result = self._client.publish(topic, message, qos)
             result.wait_for_publish()
             return result.is_published()

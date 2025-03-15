@@ -1,7 +1,10 @@
 from datetime import timedelta
 from os import getenv
 
-from flask import Flask, session
+from flask_socketio import SocketIO, emit
+from flask import Flask, session, request
+from flask_cors import CORS
+
 from auth.auth import handle_login, handle_logout, require_roles
 from biometrics.biometrics import handle_enroll_biometrics, handle_get_embeddings, handle_delete_biometrics
 from log.log import handle_get_logs, handle_get_log_file
@@ -11,12 +14,18 @@ from utils.mqtt import connect_mqtt
 
 app = Flask(__name__)
 app.secret_key = getenv("SECRET_KEY")
-connect_mqtt()
+socketio = SocketIO(app, cors_allowed_origins=["http://localhost:3000"])
+connect_mqtt(socketio)
+
+# Allow cors
+CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+
 
 @app.before_request
 def set_session_timeout():
     session.permanent = True
     app.permanent_session_lifetime = timedelta(minutes=int(getenv("SESSION_TIMEOUT", 30)))
+
 
 @app.errorhandler(500)
 def internal_error(error):
@@ -119,6 +128,17 @@ def get_logs():
 @require_roles(["admin", "security"])
 def get_log_file(filename):
     return handle_get_log_file(filename)
+
+
+@socketio.on("connect", namespace="/api/states/listen")
+def handle_connect():
+    print(f"Websocket client connected {request.sid}")
+    emit("state", "Connection successful")
+
+
+@socketio.on("disconnect", namespace="/api/states/listen")
+def handle_disconnect():
+    print("Websocket client disconnected")
 
 
 if __name__ == '__main__':

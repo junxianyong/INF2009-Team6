@@ -291,50 +291,138 @@ class FaceVerification(LoggerMixin):
             self.logger.error(f"Error loading embeddings: {str(e)}")
             return {}
 
-    def build_embedding_from_image(self, img_path, person_name):
+
+    def build_embedding_from_folder(self, base_folder):
         """
-        Generates and stores a face embedding vector from an image by performing
-        face detection, extraction, preprocessing, and embedding vector computation.
+        Generates and stores face embeddings from a folder structure where each subfolder
+        represents a person and contains their face images.
 
-        This method processes a given image to detect a face and extracts features
-        associated with the identified individual. It then saves the resultant embedding
-        vector, tagged with the provided person's name, in the embeddings dictionary.
+        The folder structure should be:
+        base_folder/
+            person1_name/
+                image1.jpg
+                image2.jpg
+                ...
+            person2_name/
+                image1.jpg
+                ...
 
-        :param img_path: The file path to the image which is to be processed.
-        :type img_path: str
-        :param person_name: The name of the person associated with the image.
-        :type person_name: str
+        :param base_folder: Path to the base folder containing person subfolders
+        :type base_folder: str
         :return: A boolean indicating whether the embedding computation and saving were
-            successful. It returns False in case of any errors or issues during
-            processing.
+            successful.
         :rtype: bool
         """
-        interpreter = self.get_tflite_interpreter()
-
-        try:
-            self.logger.info(f"Processing {img_path}...")
-            img = cv2.imread(img_path)
-            if img is None:
-                self.logger.error(f"Could not load image {img_path}")
-                return False
-
-            face_location = self.detect_face(img)
-            if not face_location:
-                self.logger.warning(f"No face detected in {img_path}")
-                return False
-
-            face = self.extract_face(img, face_location)
-            preprocessed_face = self.preprocess_face(face)
-            embedding = self.get_face_embedding(preprocessed_face)
-            embeddings_dict = {person_name: embedding}
-
-            self.save_face_embeddings(embeddings_dict)
-            self.logger.info(f"Successfully processed {person_name}")
-            return True
-
-        except Exception as e:
-            self.logger.error(f"Error processing {img_path}: {str(e)}")
+        if not os.path.exists(base_folder):
+            self.logger.error(f"Base folder does not exist: {base_folder}")
             return False
+
+        embeddings_dict = {}
+        
+        # Iterate through person folders
+        for person_name in os.listdir(base_folder):
+            person_folder = os.path.join(base_folder, person_name)
+            if not os.path.isdir(person_folder):
+                continue
+                
+            self.logger.info(f"Processing images for person: {person_name}")
+            person_embeddings = []
+
+            # Process each image in person's folder
+            for image_name in os.listdir(person_folder):
+                if not image_name.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    continue
+                    
+                img_path = os.path.join(person_folder, image_name)
+                
+                try:
+                    self.logger.info(f"Processing {img_path}...")
+                    img = cv2.imread(img_path)
+                    if img is None:
+                        self.logger.error(f"Could not load image {img_path}")
+                        continue
+
+                    face_location = self.detect_face(img)
+                    if not face_location:
+                        self.logger.warning(f"No face detected in {img_path}")
+                        continue
+
+                    face = self.extract_face(img, face_location)
+                    preprocessed_face = self.preprocess_face(face)
+                    embedding = self.get_face_embedding(preprocessed_face)
+                    person_embeddings.append(embedding)
+                    
+                except Exception as e:
+                    self.logger.error(f"Error processing {img_path}: {str(e)}")
+                    continue
+
+            if person_embeddings:
+                embeddings_dict[person_name] = person_embeddings
+                self.logger.info(f"Successfully processed {len(person_embeddings)} images for {person_name}")
+            else:
+                self.logger.warning(f"No valid embeddings generated for {person_name}")
+
+        if embeddings_dict:
+            self.save_face_embeddings(embeddings_dict)
+            self.logger.info(f"Saved embeddings for {len(embeddings_dict)} persons")
+            return True
+        
+        self.logger.warning("No embeddings were generated")
+        return False
+
+    def build_embedding_from_images(self, image_paths, person_name):
+        """
+        Generates and stores face embeddings from a list of image paths for a single person.
+
+        :param image_paths: List of paths to images of the person
+        :type image_paths: List[str]
+        :param person_name: Name of the person
+        :type person_name: str
+        :return: A boolean indicating whether the embedding computation and saving were successful
+        :rtype: bool
+        """
+        if not image_paths:
+            self.logger.error("No image paths provided")
+            return False
+
+        embeddings_dict = {}
+        person_embeddings = []
+
+        # Process each image path
+        for img_path in image_paths:
+            if not os.path.exists(img_path):
+                self.logger.error(f"Image does not exist: {img_path}")
+                continue
+
+            try:
+                self.logger.info(f"Processing {img_path}...")
+                img = cv2.imread(img_path)
+                if img is None:
+                    self.logger.error(f"Could not load image {img_path}")
+                    continue
+
+                face_location = self.detect_face(img)
+                if not face_location:
+                    self.logger.warning(f"No face detected in {img_path}")
+                    continue
+
+                face = self.extract_face(img, face_location)
+                preprocessed_face = self.preprocess_face(face)
+                embedding = self.get_face_embedding(preprocessed_face)
+                person_embeddings.append(embedding)
+                
+            except Exception as e:
+                self.logger.error(f"Error processing {img_path}: {str(e)}")
+                continue
+
+        if person_embeddings:
+            embeddings_dict[person_name] = person_embeddings
+            self.save_face_embeddings(embeddings_dict)
+            self.logger.info(f"Successfully processed {len(person_embeddings)} images for {person_name}")
+            return True
+        
+        self.logger.warning(f"No valid embeddings generated for {person_name}")
+        return False
 
     def verify_face(self, frame=None):
         """
@@ -394,12 +482,14 @@ class FaceVerification(LoggerMixin):
             best_match = None
             best_similarity = -1
 
-            for name, stored_embedding in embeddings_db.items():
+            for name, stored_embeddings in embeddings_db.items():
                 try:
-                    similarity = 1 - cosine(query_embedding, stored_embedding)
-                    if similarity > best_similarity:
-                        best_similarity = similarity
-                        best_match = name
+                    # Compare with all embeddings for this person
+                    for stored_embedding in stored_embeddings:
+                        similarity = 1 - cosine(query_embedding, stored_embedding)
+                        if similarity > best_similarity:
+                            best_similarity = similarity
+                            best_match = name
                 except Exception as e:
                     self.logger.error(f"Error comparing with {name}: {str(e)}")
                     continue
@@ -519,23 +609,32 @@ if __name__ == "__main__":
     face_verification = FaceVerification(face_verification_config)
 
 
-    def detect_and_capture_face(face_verifier, output_folder, filename=None):
+    def detect_and_capture_face(face_verifier, output_folder, person_name=None):
         """
         Capture an image using the webcam and save it.
 
         Args:
             face_verifier (FaceVerification): Instance of FaceVerification class.
             output_folder (str): Folder to save the captured image.
-            filename (str): Name for the saved file (without extension).
+            person_name (str): Name of the person in the image.
 
         Returns:
             Path to saved image or None if capture failed.
         """
+        # Create the output folder (base) if it doesn't exist
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
 
-        if not filename:
-            filename = f"image_{int(time.time())}"
+        # If person name is provided, create the person's folder
+        if person_name:
+            output_folder = os.path.join(output_folder, person_name)
+
+            if not os.path.exists(output_folder):
+                os.makedirs(output_folder)
+
+        # Use timestamp as filename
+        filename = str(int(time.time()))
+        
         output_path = os.path.join(output_folder, f"{filename}.jpg")
 
         face_verifier.logger.info(f"Initializing camera {face_verifier.camera_id}...")
@@ -571,13 +670,14 @@ if __name__ == "__main__":
             break
 
         name = input("Enter your name: ")
+        base_folder = "faces"
 
         face_verification.logger.info("Capturing face image...")
         img_path = detect_and_capture_face(face_verification, "faces", name)
         if img_path:
             face_verification.logger.info(f"Face image saved to {img_path}")
-            face_verification.logger.info("Building embedding from image...")
-            face_verification.build_embedding_from_image(img_path, name)
+            face_verification.logger.info("Building face embeddings from images...")
+            face_verification.build_embedding_from_images([img_path], name)
 
     face_verification.logger.info("Running face verification demo...")
     result = face_verification.wait_for_face_and_verify()

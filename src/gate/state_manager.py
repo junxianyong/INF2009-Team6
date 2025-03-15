@@ -3,7 +3,6 @@ from datetime import datetime
 
 from gate.enum.gate_types import GateType
 from gate.enum.states import GateState
-from gate.example import *
 from utils.logger_mixin import LoggerMixin
 
 
@@ -93,6 +92,7 @@ class StateManager(LoggerMixin):
         :param state: The new state to be assigned to the current state.
         :type state: str
         """
+        self.gate.driver.clear()
         self._current_state = state
         self._log_state_change(state)
 
@@ -162,7 +162,7 @@ class StateManager(LoggerMixin):
         personnel_id = self.gate.face_verification.wait_for_face_and_verify()
         if personnel_id:
             self.gate.personnel_id = personnel_id
-            open_gate(1)
+            self.gate.driver.open_gate()
             self.gate.publisher.publish(
                 "gate_1/status",
                 json.dumps({"opened": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
@@ -180,8 +180,8 @@ class StateManager(LoggerMixin):
 
         :raises ValueError: If the personnel passage state is invalid.
         """
-        if personnel_passed():
-            close_gate(1)
+        if self.gate.driver.personnel_passed():
+            self.gate.driver.close_gate()
             self.current_state = GateState.CHECKING_MANTRAP
 
     def _handle_checking_mantrap(self):
@@ -229,7 +229,7 @@ class StateManager(LoggerMixin):
 
         :return: This function does not return any value.
         """
-        alert_buzzer_and_led()
+        self.gate.driver.alert()
         # No transitions - waits for command callback to change state
 
     def _handle_capture_intruder(self):
@@ -315,16 +315,24 @@ class StateManager(LoggerMixin):
 
         :return: None
         """
-        if self.gate.voice_auth.authenticate_user(self.gate.personnel_id):
-            open_gate(2)
-            self.gate.publisher.publish(
-                "gate_2/status",
-                json.dumps({"opened": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
-                2,
-            )
-            self.current_state = GateState.WAITING_FOR_PASSAGE_G2
-        else:
-            self.current_state = GateState.CAPTURE_MISMATCH
+        retries = 0
+
+        while retries < 3:
+            if self.gate.voice_auth.authenticate_user(self.gate.personnel_id):
+                open_gate(2)
+                self.gate.publisher.publish(
+                    "gate_2/status",
+                    json.dumps({"opened": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
+                    2,
+                )
+                self.current_state = GateState.WAITING_FOR_PASSAGE_G2
+                return
+            else:
+                self.logger.warning("Voice authentication failed. Retrying...") # Log warning
+                retries += 1
+                
+        # If authentication fails after 3 retries, capture the mismatch
+        self.current_state = GateState.CAPTURE_MISMATCH
 
     def _handle_waiting_for_passage_g2(self):
         """
@@ -339,8 +347,8 @@ class StateManager(LoggerMixin):
         :raises AttributeError: If the "gate" object is not properly initialized.
         :return: None
         """
-        if personnel_passed():
-            close_gate(2)
+        if self.gate.driver.personnel_passed():
+            self.gate.driver.close_gate()
             self.gate.publisher.publish(
                 "gate_2/status",
                 json.dumps({"closed": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),

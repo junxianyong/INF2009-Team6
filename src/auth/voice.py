@@ -10,6 +10,7 @@ import numpy as np
 import pyaudio
 import speech_recognition as sr
 from scipy.spatial.distance import cosine
+from sympy.physics.units import micro
 
 from utils.logger_mixin import LoggerMixin
 
@@ -47,6 +48,7 @@ class VoiceAuth(LoggerMixin):
             self,
             voice_auth_config,
             logging_level=logging.INFO,
+            recognizer=sr.Recognizer(),
     ):
         """
         Represents the initialization of a voice authentication system that configures
@@ -68,6 +70,21 @@ class VoiceAuth(LoggerMixin):
         self._linear_threshold = voice_auth_config["linear_threshold"]
         self._cos_threshold = voice_auth_config["cos_threshold"]
         self._logger = self.setup_logger(__name__, logging_level)
+        self._recognizer = recognizer
+        
+        self._adjust_for_ambient_noise()
+
+    def _adjust_for_ambient_noise(self, microphone=sr.Microphone()):
+        """
+        Adjusts the recognizer's energy threshold based on the surrounding noise level.
+
+        This method listens for the specified audio source and adjusts the recognizer's energy
+        threshold based on the surrounding noise level. It helps in reducing false positives and
+        improving the accuracy of speech recognition.
+        """
+        with microphone as source:
+            self._recognizer.adjust_for_ambient_noise(source)
+            self._logger.info("Energy threshold adjusted for ambient noise.")
 
     def _extract_features(self, filename) -> np.ndarray:
         """
@@ -105,11 +122,11 @@ class VoiceAuth(LoggerMixin):
                  an empty string is returned.
         :rtype: str
         """
-        recognizer = sr.Recognizer()
+        
         with sr.AudioFile(filename) as source:
-            audio = recognizer.record(source)
+            audio = self._recognizer.record(source)
         try:
-            rec = recognizer.recognize_google(audio)
+            rec = self._recognizer.recognize_google(audio)
             self._logger.debug(
                 "The audio file contains: " + rec
             )  # Changed from info to debug
@@ -228,6 +245,10 @@ class VoiceAuth(LoggerMixin):
         :return: Returns True if the authentication is successful, otherwise False.
         :rtype: bool
         """
+        self._adjust_for_ambient_noise()
+
+        self._logger.info("Recording audio for authentication...")
+
         test_filename = "test_sample.wav"
         self._record_audio(test_filename)
         test_features = self._extract_features(test_filename)
@@ -281,7 +302,7 @@ class VoiceAuth(LoggerMixin):
             self._logger.error("Authentication failed.")
             return False
 
-    def _record_audio(self, filename, duration=3, rate=44100, chunk=1024, channels=1):
+    def _record_audio(self, filename, duration=5, rate=44100, chunk=1024, channels=1):
         """
         Records audio using the PyAudio library and saves it to a specified file.
 
@@ -304,6 +325,10 @@ class VoiceAuth(LoggerMixin):
         :type channels: int, optional
         :return: None
         """
+        self._logger.debug("Adjusting for ambient noise...")  # Changed from info to debug
+        self._adjust_for_ambient_noise()
+
+
         audio = pyaudio.PyAudio()
         stream = audio.open(
             format=pyaudio.paInt16,
@@ -347,13 +372,15 @@ if __name__ == "__main__":
     }
 
     # Create an instance of VoiceAuth
-    va = VoiceAuth(voice_auth_config)
+    va = VoiceAuth(voice_auth_config, logging.DEBUG)
 
     print(f"Enrolling {USER1_TO_ENROLL} now")  # Changed from info to debug
+    va._record_audio("ck_sample0.wav")
+    va._record_audio("ck_sample1.wav")
     va.enroll_user(USER1_TO_ENROLL, ["ck_sample0.wav", "ck_sample1.wav"])
 
     print(f"Enrolling {USER2_TO_ENROLL} now")  # Changed from info to debug
-    va.enroll_user(USER2_TO_ENROLL, ["sample0.wav"])
+    # va.enroll_user(USER2_TO_ENROLL, ["sample0.wav"])
 
     time.sleep(2)
     print(f"Authenticating {USER_TO_AUTH} now")  # Changed from info to debug

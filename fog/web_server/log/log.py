@@ -32,9 +32,9 @@ def handle_get_logs():
     # Get logs
     cursor.execute(
         f"""
-        SELECT id, category, user_id, mantrap_id, message, timestamp, file FROM logs
+        SELECT id, category, user_id, mantrap_id, message, TO_CHAR(timestamp, 'Dy, DD Month YYYY HH24:MI:SS') AS timestamp, file FROM logs
         WHERE {' AND '.join([f'{key} = %s' for key in data.keys()]) if data else 'true'}
-        ORDER BY timestamp DESC
+        ORDER BY id DESC
         """,
         tuple(data.values())
     )
