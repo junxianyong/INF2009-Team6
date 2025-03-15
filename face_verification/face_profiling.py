@@ -8,13 +8,12 @@ class FaceProfiler:
     def __init__(self):
         self.mp_face_detection = mp.solutions.face_detection
         self.target_size = (112, 112)
-        self.face_required_size = (512, 512)
         self.padding = 0.2
         self._interpreter = None
         self.model_path = "mobilefacenet.tflite"
         self.vgg_model_path = "vgg16_feature_extractor.h5"
         self.vgg_tflite_path = "vgg16_feature_extractor.tflite"
-        self.vgg_target_size = (224, 224)  # VGG-Face required input size
+        self.vgg_target_size = (224, 224)  # VGG required input size
         self._vgg_model = None
         self._vgg_interpreter = None
         # Add OpenCV face detector
@@ -32,14 +31,14 @@ class FaceProfiler:
 
     def get_vgg_model(self):
         if self._vgg_model is None:
-            print("Loading VGG-Face model...")
+            print("Loading VGG16 model...")
             self._vgg_model = tf.keras.models.load_model(self.vgg_model_path)
             print("VGG model loaded successfully.")
         return self._vgg_model
 
     def get_vgg_tflite_interpreter(self):
         if self._vgg_interpreter is None:
-            print("Loading VGG-Face TFLite model...")
+            print("Loading VGG16 TFLite model...")
             self._vgg_interpreter = tf.lite.Interpreter(model_path=self.vgg_tflite_path)
             self._vgg_interpreter.allocate_tensors()
             print("VGG TFLite model loaded successfully.")
@@ -107,7 +106,10 @@ class FaceProfiler:
             face_img = cv2.resize(face_img, target_size)
             face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
             face_normalized = face_rgb.astype("float32")
-            face_normalized = face_normalized / 255.0  # VGG normalization
+            # Use ImageNet preprocessing for VGG
+            face_normalized[..., 0] -= 103.939
+            face_normalized[..., 1] -= 116.779
+            face_normalized[..., 2] -= 123.68
         
         return np.expand_dims(face_normalized, axis=0)
 
@@ -119,19 +121,23 @@ class FaceProfiler:
             interpreter.set_tensor(input_details[0]["index"], face_img)
             interpreter.invoke()
             embedding = interpreter.get_tensor(output_details[0]["index"])
-        elif method == 'vgg':
-            model = self.get_vgg_model()
-            embedding = model.predict(face_img, verbose=0)
-        else:  # vgg_tflite
-            interpreter = self.get_vgg_tflite_interpreter()
-            input_details = interpreter.get_input_details()
-            output_details = interpreter.get_output_details()
-            interpreter.set_tensor(input_details[0]["index"], face_img)
-            interpreter.invoke()
-            embedding = interpreter.get_tensor(output_details[0]["index"])
+        elif method in ['vgg', 'vgg_tflite']:
+            if method == 'vgg':
+                model = self.get_vgg_model()
+                embedding = model.predict(face_img, verbose=0)
+            else:  # vgg_tflite
+                interpreter = self.get_vgg_tflite_interpreter()
+                input_details = interpreter.get_input_details()
+                output_details = interpreter.get_output_details()
+                interpreter.set_tensor(input_details[0]["index"], face_img)
+                interpreter.invoke()
+                embedding = interpreter.get_tensor(output_details[0]["index"])
+            
+            # Apply L2 normalization followed by scaling
+            embedding = embedding / np.linalg.norm(embedding, axis=1, keepdims=True)
+            # Add scaling factor to increase distances between embeddings
+            embedding = embedding * 10.0
         
-        # Normalize embedding
-        embedding = embedding / np.linalg.norm(embedding)
         return embedding.flatten()
 
 def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_method='mobilefacenet'):
@@ -173,6 +179,33 @@ def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_metho
     
     return timings
 
+def compute_similarity(embedding1, embedding2):
+    """Compute cosine similarity between two embeddings."""
+    from scipy.spatial.distance import cosine
+    return 1 - cosine(embedding1, embedding2)
+
+def get_embedding_from_image(profiler, image_path, detector='mediapipe', embedding_method='mobilefacenet'):
+    """Get embedding from a single image."""
+    frame = cv2.imread(image_path)
+    if frame is None:
+        print(f"Error: Could not read image {image_path}")
+        return None
+    
+    if detector == 'mediapipe':
+        face_location = profiler.detect_face_mediapipe(frame)
+    else:
+        face_location = profiler.detect_face_opencv(frame)
+    
+    if not face_location:
+        print(f"No face detected in image using {detector}")
+        return None
+    
+    face = profiler.extract_face(frame, face_location)
+    preprocessed_face = profiler.preprocess_face(face, embedding_method)
+    embedding = profiler.get_face_embedding(preprocessed_face, embedding_method)
+    
+    return embedding
+
 def main():
     print("\nInitializing face profiler...")
     profiler = FaceProfiler()
@@ -180,8 +213,8 @@ def main():
     # Available models
     print("\nAvailable embedding methods:")
     print("1. MobileFaceNet (TFLite)")
-    print("2. VGG-Face (Keras)")
-    print("3. VGG-Face (TFLite)")
+    print("2. VGG (Keras)")
+    print("3. VGG (TFLite)")
     
     while True:
         choice = input("\nSelect embedding method (1-3) or 'q' to quit: ")
@@ -262,6 +295,33 @@ def main():
                         print(f"{step.replace('_', ' ').title():20}: {avg:.4f} ± {std:.4f} seconds")
                     print("-" * 60)
                     print(f"Total Pipeline Time:    {total_avg:.4f} seconds")
+            
+            print("\n" + "="*80 + "\n")
+            
+            # After the performance testing, add similarity testing
+            print("\n=== Similarity Testing ===")
+            test_image = "saved_faces/selenagomez_test.jpg"
+            same_person = "saved_faces/selenagomez.jpg"
+            different_person = "saved_faces/billgates.jpg"
+            
+            for detector in ['mediapipe', 'opencv']:
+                print(f"\nTesting similarities using {detector} detector:")
+                
+                # Get embeddings
+                test_embedding = get_embedding_from_image(profiler, test_image, detector, embedding_method)
+                same_embedding = get_embedding_from_image(profiler, same_person, detector, embedding_method)
+                diff_embedding = get_embedding_from_image(profiler, different_person, detector, embedding_method)
+                
+                if test_embedding is not None and same_embedding is not None and diff_embedding is not None:
+                    # Compare with same person
+                    same_similarity = compute_similarity(test_embedding, same_embedding)
+                    print(f"Similarity with same person (Selena Gomez): {same_similarity:.4f}")
+                    
+                    # Compare with different person
+                    diff_similarity = compute_similarity(test_embedding, diff_embedding)
+                    print(f"Similarity with different person (Bill Gates): {diff_similarity:.4f}")
+                else:
+                    print("Error: Could not compute similarities due to face detection failure")
             
             print("\n" + "="*80 + "\n")
             
