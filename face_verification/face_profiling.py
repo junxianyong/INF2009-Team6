@@ -12,6 +12,11 @@ class FaceProfiler:
         self.padding = 0.2
         self._interpreter = None
         self.model_path = "mobilefacenet.tflite"
+        self.vgg_model_path = "vgg16_feature_extractor.h5"
+        self.vgg_tflite_path = "vgg16_feature_extractor.tflite"
+        self.vgg_target_size = (224, 224)  # VGG-Face required input size
+        self._vgg_model = None
+        self._vgg_interpreter = None
         # Add OpenCV face detector
         self.opencv_face_detector = cv2.CascadeClassifier(
             cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
@@ -24,6 +29,21 @@ class FaceProfiler:
             self._interpreter.allocate_tensors()
             print("Model loaded successfully.")
         return self._interpreter
+
+    def get_vgg_model(self):
+        if self._vgg_model is None:
+            print("Loading VGG-Face model...")
+            self._vgg_model = tf.keras.models.load_model(self.vgg_model_path)
+            print("VGG model loaded successfully.")
+        return self._vgg_model
+
+    def get_vgg_tflite_interpreter(self):
+        if self._vgg_interpreter is None:
+            print("Loading VGG-Face TFLite model...")
+            self._vgg_interpreter = tf.lite.Interpreter(model_path=self.vgg_tflite_path)
+            self._vgg_interpreter.allocate_tensors()
+            print("VGG TFLite model loaded successfully.")
+        return self._vgg_interpreter
 
     def detect_face_mediapipe(self, frame):
         """MediaPipe face detection implementation"""
@@ -75,26 +95,46 @@ class FaceProfiler:
                 
         return face
 
-    def preprocess_face(self, face_img):
-        if face_img.shape[:2] != self.target_size:
-            face_img = cv2.resize(face_img, self.target_size)
-        face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
-        face_normalized = face_rgb.astype("float32")
-        face_normalized = (face_normalized - 127.5) / 128.0
-        face_normalized = np.expand_dims(face_normalized, axis=0)
-        return face_normalized
+    def preprocess_face(self, face_img, model_type='mobilefacenet'):
+        if model_type == 'mobilefacenet':
+            target_size = self.target_size
+            face_img = cv2.resize(face_img, target_size)
+            face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+            face_normalized = face_rgb.astype("float32")
+            face_normalized = (face_normalized - 127.5) / 128.0
+        else:  # VGG preprocessing
+            target_size = self.vgg_target_size
+            face_img = cv2.resize(face_img, target_size)
+            face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+            face_normalized = face_rgb.astype("float32")
+            face_normalized = face_normalized / 255.0  # VGG normalization
+        
+        return np.expand_dims(face_normalized, axis=0)
 
-    def get_face_embedding(self, face_img):
-        interpreter = self.get_tflite_interpreter()
-        input_details = interpreter.get_input_details()
-        output_details = interpreter.get_output_details()
-        interpreter.set_tensor(input_details[0]["index"], face_img)
-        interpreter.invoke()
-        embedding = interpreter.get_tensor(output_details[0]["index"])
+    def get_face_embedding(self, face_img, method='mobilefacenet'):
+        if method == 'mobilefacenet':
+            interpreter = self.get_tflite_interpreter()
+            input_details = interpreter.get_input_details()
+            output_details = interpreter.get_output_details()
+            interpreter.set_tensor(input_details[0]["index"], face_img)
+            interpreter.invoke()
+            embedding = interpreter.get_tensor(output_details[0]["index"])
+        elif method == 'vgg':
+            model = self.get_vgg_model()
+            embedding = model.predict(face_img, verbose=0)
+        else:  # vgg_tflite
+            interpreter = self.get_vgg_tflite_interpreter()
+            input_details = interpreter.get_input_details()
+            output_details = interpreter.get_output_details()
+            interpreter.set_tensor(input_details[0]["index"], face_img)
+            interpreter.invoke()
+            embedding = interpreter.get_tensor(output_details[0]["index"])
+        
+        # Normalize embedding
         embedding = embedding / np.linalg.norm(embedding)
         return embedding.flatten()
 
-def profile_pipeline(profiler, image_path, detector='mediapipe'):
+def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_method='mobilefacenet'):
     """Profile each step of the face processing pipeline."""
     timings = {}
     
@@ -123,74 +163,110 @@ def profile_pipeline(profiler, image_path, detector='mediapipe'):
     
     # Preprocessing timing
     start_time = time.time()
-    preprocessed_face = profiler.preprocess_face(face)
+    preprocessed_face = profiler.preprocess_face(face, embedding_method)
     timings['preprocessing'] = time.time() - start_time
     
     # Embedding generation timing
     start_time = time.time()
-    embedding = profiler.get_face_embedding(preprocessed_face)
+    embedding = profiler.get_face_embedding(preprocessed_face, embedding_method)
     timings['embedding'] = time.time() - start_time
     
     return timings
 
 def main():
     print("\nInitializing face profiler...")
-    start_time = time.time()
     profiler = FaceProfiler()
-    interpreter = profiler.get_tflite_interpreter()
-    model_load_time = time.time() - start_time
-    print(f"Model loading time: {model_load_time:.4f} seconds\n")
 
-    test_images = [
-        "saved_faces/billgates.jpg",
-        "saved_faces/justinbieber.jpg",
-        "saved_faces/selenagomez.jpg",
-        "saved_faces/shawnmendes.jpg",
-        "saved_faces/taylor.jpg",
-    ]
+    # Available models
+    print("\nAvailable embedding methods:")
+    print("1. MobileFaceNet (TFLite)")
+    print("2. VGG-Face (Keras)")
+    print("3. VGG-Face (TFLite)")
     
-    detectors = ['mediapipe', 'opencv']
-    
-    for detector in detectors:
-        print(f"\n=== Testing {detector.upper()} Detector ===")
-        
-        # Initial run
-        print(f"\nPerforming initial {detector} run...")
-        initial_timings = profile_pipeline(profiler, test_images[0], detector)
-        if initial_timings:
-            print(f"\nInitial {detector.upper()} Results:")
-            print("-" * 40)
-            for step, time_taken in initial_timings.items():
-                print(f"{step.replace('_', ' ').title():20}: {time_taken:.4f} seconds")
-        
-        # Multiple runs for average
-        print(f"\nPerforming multiple {detector} runs...")
-        all_timings = []
-        for i, image_path in enumerate(test_images[1:], 1):
-            print(f"\nProcessing image {i}/4...")
-            timings = profile_pipeline(profiler, test_images[i], detector)
-            if timings:
-                all_timings.append(timings)
-        
-        if all_timings:
-            avg_timings = {
-                key: np.mean([t[key] for t in all_timings]) 
-                for key in all_timings[0].keys()
-            }
-            std_timings = {
-                key: np.std([t[key] for t in all_timings]) 
-                for key in all_timings[0].keys()
-            }
+    while True:
+        choice = input("\nSelect embedding method (1-3) or 'q' to quit: ")
+        if choice.lower() == 'q':
+            break
             
-            print(f"\n{detector.upper()} Average Results (over 4 runs):")
-            print("-" * 60)
-            total_avg = sum(avg_timings.values())
-            for step in avg_timings.keys():
-                avg = avg_timings[step]
-                std = std_timings[step]
-                print(f"{step.replace('_', ' ').title():20}: {avg:.4f} ± {std:.4f} seconds")
-            print("-" * 60)
-            print(f"Total Pipeline Time:    {total_avg:.4f} seconds")
+        try:
+            choice = int(choice)
+            if choice not in [1, 2, 3]:
+                print("Invalid choice. Please select 1-3.")
+                continue
+                
+            embedding_method = {
+                1: 'mobilefacenet',
+                2: 'vgg',
+                3: 'vgg_tflite'
+            }[choice]
+            
+            # Load only the selected model
+            print(f"\nLoading {embedding_method.upper()} model...")
+            start_time = time.time()
+            if embedding_method == 'mobilefacenet':
+                profiler.get_tflite_interpreter()
+            elif embedding_method == 'vgg':
+                profiler.get_vgg_model()
+            else:  # vgg_tflite
+                profiler.get_vgg_tflite_interpreter()
+            model_load_time = time.time() - start_time
+            print(f"Model loading time: {model_load_time:.4f} seconds\n")
+
+            test_images = [
+                "saved_faces/billgates.jpg",
+                "saved_faces/justinbieber.jpg",
+                "saved_faces/selenagomez.jpg",
+                "saved_faces/shawnmendes.jpg",
+                "saved_faces/taylor.jpg",
+            ]
+            
+            detectors = ['mediapipe', 'opencv']
+            
+            for detector in detectors:
+                print(f"\n=== Testing {detector.upper()} + {embedding_method.upper()} ===")
+                
+                # Initial run
+                print(f"\nPerforming initial {detector} + {embedding_method} run...")
+                initial_timings = profile_pipeline(profiler, test_images[0], detector, embedding_method)
+                if initial_timings:
+                    print(f"\nInitial Results:")
+                    print("-" * 40)
+                    for step, time_taken in initial_timings.items():
+                        print(f"{step.replace('_', ' ').title():20}: {time_taken:.4f} seconds")
+                
+                # Multiple runs for average
+                print(f"\nPerforming multiple {detector} + {embedding_method} runs...")
+                all_timings = []
+                for i, image_path in enumerate(test_images[1:], 1):
+                    print(f"\nProcessing image {i}/4...")
+                    timings = profile_pipeline(profiler, test_images[i], detector, embedding_method)
+                    if timings:
+                        all_timings.append(timings)
+                
+                if all_timings:
+                    avg_timings = {
+                        key: np.mean([t[key] for t in all_timings]) 
+                        for key in all_timings[0].keys()
+                    }
+                    std_timings = {
+                        key: np.std([t[key] for t in all_timings]) 
+                        for key in all_timings[0].keys()
+                    }
+                    
+                    print(f"\n{detector.upper()} + {embedding_method.upper()} Average Results (over 4 runs):")
+                    print("-" * 60)
+                    total_avg = sum(avg_timings.values())
+                    for step in avg_timings.keys():
+                        avg = avg_timings[step]
+                        std = std_timings[step]
+                        print(f"{step.replace('_', ' ').title():20}: {avg:.4f} ± {std:.4f} seconds")
+                    print("-" * 60)
+                    print(f"Total Pipeline Time:    {total_avg:.4f} seconds")
+            
+            print("\n" + "="*80 + "\n")
+            
+        except ValueError:
+            print("Invalid input. Please enter a number between 1-3.")
 
 if __name__ == "__main__":
     main()
