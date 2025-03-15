@@ -10,6 +10,7 @@ import numpy as np
 import pyaudio
 import speech_recognition as sr
 from scipy.spatial.distance import cosine
+from sympy.physics.units import micro
 
 from utils.logger_mixin import LoggerMixin
 
@@ -70,8 +71,10 @@ class VoiceAuth(LoggerMixin):
         self._cos_threshold = voice_auth_config["cos_threshold"]
         self._logger = self.setup_logger(__name__, logging_level)
         self._recognizer = recognizer
+        
+        self._adjust_for_ambient_noise()
 
-    def _adjust_for_ambient_noise(self, source):
+    def _adjust_for_ambient_noise(self, microphone=sr.Microphone()):
         """
         Adjusts the recognizer's energy threshold based on the surrounding noise level.
 
@@ -79,8 +82,10 @@ class VoiceAuth(LoggerMixin):
         threshold based on the surrounding noise level. It helps in reducing false positives and
         improving the accuracy of speech recognition.
         """
-
-        self._recognizer.adjust_for_ambient_noise(self._recognizer.listen(source))
+        with microphone as source:
+            self._recognizer.adjust_for_ambient_noise(source)
+            self._logger.info("Energy threshold adjusted for ambient noise.")
+            print("Energy threshold adjusted for ambient noise.")
 
     def _extract_features(self, filename) -> np.ndarray:
         """
@@ -363,10 +368,10 @@ if __name__ == "__main__":
     va = VoiceAuth(voice_auth_config)
 
     print(f"Enrolling {USER1_TO_ENROLL} now")  # Changed from info to debug
-    va.enroll_user(USER1_TO_ENROLL, ["ck_sample0.wav", "ck_sample1.wav"])
+    # va.enroll_user(USER1_TO_ENROLL, ["ck_sample0.wav", "ck_sample1.wav"])
 
     print(f"Enrolling {USER2_TO_ENROLL} now")  # Changed from info to debug
-    va.enroll_user(USER2_TO_ENROLL, ["sample0.wav"])
+    # va.enroll_user(USER2_TO_ENROLL, ["sample0.wav"])
 
     time.sleep(2)
     print(f"Authenticating {USER_TO_AUTH} now")  # Changed from info to debug
