@@ -237,10 +237,11 @@ class FaceVerification(LoggerMixin):
     def save_face_embeddings(self, embeddings_dict):
         """
         Saves face embeddings to a file, merging them with any pre-existing embeddings.
-        For existing users, adds new embeddings to their list of embeddings.
+        Updates the embeddings dictionary stored in a file at the given database path using
+        serialization. Ensures old embeddings are preserved and new embeddings are added.
 
-        :param embeddings_dict: A dictionary where keys are identifiers (names) and 
-                            values are their corresponding embeddings.
+        :param embeddings_dict: A dictionary where keys are identifiers (e.g., names or IDs)
+                                and values are their corresponding embeddings.
         :return: A boolean indicating whether the operation was successful.
         """
         try:
@@ -249,23 +250,14 @@ class FaceVerification(LoggerMixin):
                 with open(self.database_path, "rb") as f:
                     existing_embeddings = pickle.load(f)
 
-            # Update existing embeddings dictionary
-            for name, embedding in embeddings_dict.items():
-                if name in existing_embeddings:
-                    # If user exists, append the new embedding to their list
-                    if isinstance(existing_embeddings[name], list):
-                        existing_embeddings[name].append(embedding)
-                    else:
-                        # Convert existing single embedding to list
-                        existing_embeddings[name] = [existing_embeddings[name], embedding]
-                else:
-                    # For new users, start with a list containing one embedding
-                    existing_embeddings[name] = [embedding]
+            existing_embeddings.update(embeddings_dict)
 
             with open(self.database_path, "wb") as f:
                 pickle.dump(existing_embeddings, f)
 
-            self.logger.info(f"Updated embeddings for {list(embeddings_dict.keys())} in {self.database_path}")
+            self.logger.info(
+                f"Saved {len(embeddings_dict)} embeddings to {self.database_path}"
+            )
             return True
         except Exception as e:
             self.logger.error(f"Error saving embeddings: {str(e)}")
@@ -402,22 +394,15 @@ class FaceVerification(LoggerMixin):
             best_match = None
             best_similarity = -1
 
-            # Compare against all embeddings for each user
-            for name, stored_embeddings in embeddings_db.items():
-                # Convert to list if it's a single embedding
-                if not isinstance(stored_embeddings, list):
-                    stored_embeddings = [stored_embeddings]
-                
-                # Compare against each embedding for this user
-                for stored_embedding in stored_embeddings:
-                    try:
-                        similarity = 1 - cosine(query_embedding, stored_embedding)
-                        if similarity > best_similarity:
-                            best_similarity = similarity
-                            best_match = name
-                    except Exception as e:
-                        self.logger.error(f"Error comparing with {name}: {str(e)}")
-                        continue
+            for name, stored_embedding in embeddings_db.items():
+                try:
+                    similarity = 1 - cosine(query_embedding, stored_embedding)
+                    if similarity > best_similarity:
+                        best_similarity = similarity
+                        best_match = name
+                except Exception as e:
+                    self.logger.error(f"Error comparing with {name}: {str(e)}")
+                    continue
 
             if best_similarity >= self.verification_threshold:
                 self.logger.info(
@@ -534,30 +519,24 @@ if __name__ == "__main__":
     face_verification = FaceVerification(face_verification_config)
 
 
-    def detect_and_capture_face(face_verifier, base_folder, person_name):
+    def detect_and_capture_face(face_verifier, output_folder, filename=None):
         """
-        Capture an image using the webcam and save it in a person-specific subfolder.
+        Capture an image using the webcam and save it.
 
         Args:
             face_verifier (FaceVerification): Instance of FaceVerification class.
-            base_folder (str): Base folder for storing all face images.
-            person_name (str): Name of the person (used for subfolder name).
+            output_folder (str): Folder to save the captured image.
+            filename (str): Name for the saved file (without extension).
 
         Returns:
             Path to saved image or None if capture failed.
         """
-        # Create base folder if it doesn't exist
-        if not os.path.exists(base_folder):
-            os.makedirs(base_folder)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
 
-        # Create person-specific subfolder
-        person_folder = os.path.join(base_folder, person_name)
-        if not os.path.exists(person_folder):
-            os.makedirs(person_folder)
-
-        # Generate filename with timestamp
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        output_path = os.path.join(person_folder, f"{timestamp}.jpg")
+        if not filename:
+            filename = f"image_{int(time.time())}"
+        output_path = os.path.join(output_folder, f"{filename}.jpg")
 
         face_verifier.logger.info(f"Initializing camera {face_verifier.camera_id}...")
         cap = cv2.VideoCapture(face_verifier.camera_id)
@@ -585,6 +564,7 @@ if __name__ == "__main__":
         face_verifier.logger.info(f"Image saved to {output_path}")
 
         return output_path
+
 
     while True:
         if input("Press Enter to capture face or 'q' to quit...").lower() == "q":
