@@ -7,7 +7,6 @@ import psutil
 import os
 import cProfile
 import pstats
-import coverage
 import tracemalloc
 
 class FaceProfiler:
@@ -159,11 +158,7 @@ def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_metho
     process = psutil.Process()
     initial_io = process.io_counters()
     tracemalloc.start()
-    
-    # Code coverage setup
-    cov = coverage.Coverage()
-    cov.start()
-    
+        
     # CPU profiler setup
     cpu_profiler = cProfile.Profile()
     cpu_profiler.enable()
@@ -219,7 +214,6 @@ def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_metho
     
     # Stop profilers and collect results
     cpu_profiler.disable()
-    cov.stop()
     final_io = process.io_counters()
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
@@ -233,12 +227,6 @@ def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_metho
     stats = pstats.Stats(cpu_profiler)
     metrics['function_calls'] = stats.total_calls
     metrics['primitive_calls'] = stats.prim_calls
-    
-    # Get code coverage
-    metrics['coverage'] = {
-        'lines_executed': len(cov.get_data().measured_files()),
-        'total_lines': sum(1 for line in open(__file__))
-    }
     
     return timings, metrics
 
@@ -257,7 +245,6 @@ def print_profiling_results(timings, metrics):
     print(f"Total I/O Write:        {metrics['io']['write_bytes']/1024:6.2f} KB")
     print(f"Function Calls:         {metrics['function_calls']:6d}")
     print(f"Primitive Calls:        {metrics['primitive_calls']:6d}")
-    print(f"Code Coverage:          {metrics['coverage']['lines_executed']/metrics['coverage']['total_lines']*100:6.2f}%")
 
 def compute_similarity(embedding1, embedding2):
     """Compute cosine similarity between two embeddings."""
@@ -292,13 +279,17 @@ def measure_model_load_metrics():
     tracemalloc.start()
     
     initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+    initial_virtual_memory = process.memory_info().vms / 1024 / 1024  # MB
     initial_cpu = process.cpu_percent()
     initial_io = process.io_counters()
     
     metrics = {
         'initial_memory': initial_memory,
+        'initial_virtual_memory': initial_virtual_memory,
         'initial_cpu': initial_cpu,
         'peak_memory': 0,
+        'current_memory': 0,
+        'virtual_memory': 0,
         'cpu_usage': 0,
         'io_read': 0,
         'io_write': 0,
@@ -311,8 +302,11 @@ def print_model_load_metrics(metrics):
     """Print metrics related to model loading."""
     print("\nModel Loading Metrics:")
     print("-" * 60)
+    print(f"Initial Memory:         {metrics['initial_memory']:6.2f} MB")
+    print(f"Current Memory:         {metrics['current_memory']:6.2f} MB")
     print(f"Memory Usage Change:    {metrics['memory_change']:6.2f} MB")
     print(f"Peak Memory Usage:      {metrics['peak_memory']:6.2f} MB")
+    print(f"Virtual Memory:         {metrics['virtual_memory']:6.2f} MB")
     print(f"CPU Usage:             {metrics['cpu_usage']:6.2f}%")
     print(f"I/O Read:              {metrics['io_read']/1024:6.2f} KB")
     print(f"I/O Write:             {metrics['io_write']/1024:6.2f} KB")
@@ -360,12 +354,15 @@ def main():
             
             # Collect metrics after model loading
             final_memory = process.memory_info().rss / 1024 / 1024
-            current_memory, peak_memory = tracemalloc.get_traced_memory()
+            final_virtual_memory = process.memory_info().vms / 1024 / 1024
+            current, peak = tracemalloc.get_traced_memory()
             final_io = process.io_counters()
             
             metrics.update({
+                'current_memory': final_memory,
                 'memory_change': final_memory - metrics['initial_memory'],
-                'peak_memory': peak_memory / 1024 / 1024,  # Convert to MB
+                'peak_memory': final_memory + (peak / 1024 / 1024),  # Add traced memory to RSS
+                'virtual_memory': final_virtual_memory,
                 'cpu_usage': process.cpu_percent(),
                 'io_read': final_io.read_bytes - initial_io.read_bytes,
                 'io_write': final_io.write_bytes - initial_io.write_bytes,
