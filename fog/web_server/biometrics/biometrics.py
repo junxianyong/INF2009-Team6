@@ -110,7 +110,7 @@ def handle_enroll_biometrics(user_id):
     release_db(db)
 
     # Send mqtt message about updated biometrics
-    publish_mqtt("update/embeddings", dumps({"face": "face_embeddings.pkl", "voice": "voicepints.pkl"}))
+    publish_mqtt("update/embeddings", dumps({"face": "face_embeddings.pkl", "voice": "voiceprints.pkl"}))
 
     return {"message": "Biometrics enrolled successfully"}
 
