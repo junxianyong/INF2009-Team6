@@ -116,7 +116,8 @@ class FaceProfiler:
         return face
 
     def preprocess_face(self, face_img, model_type='mobilefacenet'):
-        if model_type == 'mobilefacenet':
+        """Preprocess face image according to model requirements."""
+        if model_type in ['mobilefacenet', 'mobilefacenet_pb']:
             target_size = self.target_size
             face_img = cv2.resize(face_img, target_size)
             face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
@@ -144,11 +145,9 @@ class FaceProfiler:
             embedding = interpreter.get_tensor(output_details[0]["index"])
         elif method == 'mobilefacenet_pb':
             session = self.get_pb_session()
-            # Get input and output tensors
             input_tensor = session.graph.get_tensor_by_name('input:0')
             output_tensor = session.graph.get_tensor_by_name('embeddings:0')
             embedding = session.run(output_tensor, {input_tensor: face_img})
-            return embedding.flatten()
         elif method in ['vgg', 'vgg_tflite']:
             if method == 'vgg':
                 model = self.get_vgg_model()
@@ -177,88 +176,111 @@ def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_metho
         'io': {'read_bytes': 0, 'write_bytes': 0}
     }
     
-    # Start resource monitoring
-    process = psutil.Process()
-    initial_io = process.io_counters()
-    tracemalloc.start()
+    try:
+        # Start resource monitoring
+        process = psutil.Process()
+        initial_io = process.io_counters()
+        tracemalloc.start()
+            
+        # CPU profiler setup - wrap in try/except to avoid conflicts
+        cpu_profiler = None
+        try:
+            cpu_profiler = cProfile.Profile()
+            cpu_profiler.enable()
+        except RuntimeError as e:
+            print(f"Warning: Could not enable CPU profiler: {e}")
         
-    # CPU profiler setup
-    cpu_profiler = cProfile.Profile()
-    cpu_profiler.enable()
+        # Read image and record initial metrics
+        metrics['cpu'].append(process.cpu_percent())
+        metrics['memory'].append(process.memory_info().rss / 1024 / 1024)  # MB
+        
+        frame = cv2.imread(image_path)
+        if frame is None:
+            print(f"Error: Could not read image {image_path}")
+            return None, None
+        
+        # Face detection timing and metrics
+        start_time = time.time()
+        if detector == 'mediapipe':
+            face_location = profiler.detect_face_mediapipe(frame)
+        else:
+            face_location = profiler.detect_face_opencv(frame)
+        timings['detection'] = time.time() - start_time
+        
+        metrics['cpu'].append(process.cpu_percent())
+        metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
+        
+        if not face_location:
+            print(f"No face detected in image using {detector}")
+            return None, None
+        
+        # Face extraction timing and metrics
+        start_time = time.time()
+        face = profiler.extract_face(frame, face_location)
+        timings['extraction'] = time.time() - start_time
+        
+        metrics['cpu'].append(process.cpu_percent())
+        metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
+        
+        # Preprocessing timing and metrics
+        start_time = time.time()
+        preprocessed_face = profiler.preprocess_face(face, 'mobilefacenet' if 'mobilefacenet' in embedding_method else embedding_method)
+        timings['preprocessing'] = time.time() - start_time
+        
+        metrics['cpu'].append(process.cpu_percent())
+        metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
+        
+        # Embedding generation timing and metrics
+        start_time = time.time()
+        embedding = profiler.get_face_embedding(preprocessed_face, embedding_method)
+        timings['embedding'] = time.time() - start_time
+        
+        # Final metrics collection
+        metrics['cpu'].append(process.cpu_percent())
+        metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
+        
+        # Stop profilers and collect results
+        if cpu_profiler:
+            try:
+                cpu_profiler.disable()
+                stats = pstats.Stats(cpu_profiler)
+                metrics['function_calls'] = stats.total_calls
+                metrics['primitive_calls'] = stats.prim_calls
+            except Exception as e:
+                print(f"Warning: Could not disable CPU profiler: {e}")
+                metrics['function_calls'] = 0
+                metrics['primitive_calls'] = 0
+        else:
+            metrics['function_calls'] = 0
+            metrics['primitive_calls'] = 0
+            
+        final_io = process.io_counters()
+        current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        
+        # Calculate I/O metrics
+        metrics['io']['read_bytes'] = final_io.read_bytes - initial_io.read_bytes
+        metrics['io']['write_bytes'] = final_io.write_bytes - initial_io.write_bytes
+        metrics['peak_memory'] = peak / 1024 / 1024  # MB
+        
+        return timings, metrics
     
-    # Read image and record initial metrics
-    metrics['cpu'].append(process.cpu_percent())
-    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)  # MB
-    
-    frame = cv2.imread(image_path)
-    if frame is None:
-        print(f"Error: Could not read image {image_path}")
+    except Exception as e:
+        print(f"Error during profiling: {e}")
+        import traceback
+        traceback.print_exc()
+        try:
+            tracemalloc.stop()
+        except:
+            pass
         return None, None
-    
-    # Face detection timing and metrics
-    start_time = time.time()
-    if detector == 'mediapipe':
-        face_location = profiler.detect_face_mediapipe(frame)
-    else:
-        face_location = profiler.detect_face_opencv(frame)
-    timings['detection'] = time.time() - start_time
-    
-    metrics['cpu'].append(process.cpu_percent())
-    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
-    
-    if not face_location:
-        print(f"No face detected in image using {detector}")
-        return None, None
-    
-    # Face extraction timing and metrics
-    start_time = time.time()
-    face = profiler.extract_face(frame, face_location)
-    timings['extraction'] = time.time() - start_time
-    
-    metrics['cpu'].append(process.cpu_percent())
-    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
-    
-    # Preprocessing timing and metrics
-    start_time = time.time()
-    preprocessed_face = profiler.preprocess_face(face, embedding_method)
-    timings['preprocessing'] = time.time() - start_time
-    
-    metrics['cpu'].append(process.cpu_percent())
-    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
-    
-    # Embedding generation timing and metrics
-    start_time = time.time()
-    embedding = profiler.get_face_embedding(preprocessed_face, embedding_method)
-    timings['embedding'] = time.time() - start_time
-    
-    # Final metrics collection
-    metrics['cpu'].append(process.cpu_percent())
-    metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
-    
-    # Stop profilers and collect results
-    cpu_profiler.disable()
-    final_io = process.io_counters()
-    current, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    
-    # Calculate I/O metrics
-    metrics['io']['read_bytes'] = final_io.read_bytes - initial_io.read_bytes
-    metrics['io']['write_bytes'] = final_io.write_bytes - initial_io.write_bytes
-    metrics['peak_memory'] = peak / 1024 / 1024  # MB
-    
-    # Get CPU profiling stats
-    stats = pstats.Stats(cpu_profiler)
-    metrics['function_calls'] = stats.total_calls
-    metrics['primitive_calls'] = stats.prim_calls
-    
-    return timings, metrics
 
 def print_profiling_results(timings, metrics):
     """Print detailed profiling results including system metrics."""
     print("\nTiming Results:")
     print("-" * 60)
     for step, time_taken in timings.items():
-        print(f"{step.replace('_', ' ').title(): {time_taken:.4f} seconds")
+        print(f"{step.replace('_', ' ').title():20}: {time_taken:.4f} seconds")
     
     print("\nSystem Metrics:")
     print("-" * 60)
@@ -409,74 +431,87 @@ def main():
             
             detectors = ['mediapipe', 'opencv']
             
-            for detector in detectors:
-                print(f"\n=== Testing {detector.upper()} + {embedding_method.upper()} ===")
-                
-                # Initial run
-                print(f"\nPerforming initial {detector} + {embedding_method} run...")
-                initial_timings, initial_metrics = profile_pipeline(profiler, test_images[0], detector, embedding_method)
-                if initial_timings:
-                    print_profiling_results(initial_timings, initial_metrics)
-                
-                # Multiple runs for average
-                print(f"\nPerforming multiple {detector} + {embedding_method} runs...")
-                all_timings = []
-                all_metrics = []
-                for i, image_path in enumerate(test_images[1:], 1):
-                    print(f"\nProcessing image {i}/4...")
-                    timings, metrics = profile_pipeline(profiler, test_images[i], detector, embedding_method)
-                    if timings:
-                        all_timings.append(timings)
-                        all_metrics.append(metrics)
-                
-                if all_timings:
-                    avg_timings = {
-                        key: np.mean([t[key] for t in all_timings]) 
-                        for key in all_timings[0].keys()
-                    }
-                    std_timings = {
-                        key: np.std([t[key] for t in all_timings]) 
-                        for key in all_timings[0].keys()
-                    }
+            # Wrap the entire profiling section in a try-except to catch any failures
+            try:
+                for detector in detectors:
+                    print(f"\n=== Testing {detector.upper()} + {embedding_method.upper()} ===")
                     
-                    print(f"\n{detector.upper()} + {embedding_method.upper()} Average Results (over 4 runs):")
-                    print("-" * 60)
-                    total_avg = sum(avg_timings.values())
-                    for step in avg_timings.keys():
-                        avg = avg_timings[step]
-                        std = std_timings[step]
-                        print(f"{step.replace('_', ' ').title():20}: {avg:.4f} ± {std:.4f} seconds")
-                    print("-" * 60)
-                    print(f"Total Pipeline Time:    {total_avg:.4f} seconds")
-            
-            print("\n" + "="*80 + "\n")
-            
-            # After the performance testing, add similarity testing
-            print("\n=== Similarity Testing ===")
-            test_image = "saved_faces/selenagomez_test.jpg"
-            same_person = "saved_faces/selenagomez.jpg"
-            different_person = "saved_faces/billgates.jpg"
-            
-            for detector in ['mediapipe', 'opencv']:
-                print(f"\nTesting similarities using {detector} detector:")
-                
-                # Get embeddings
-                test_embedding = get_embedding_from_image(profiler, test_image, detector, embedding_method)
-                same_embedding = get_embedding_from_image(profiler, same_person, detector, embedding_method)
-                diff_embedding = get_embedding_from_image(profiler, different_person, detector, embedding_method)
-                
-                if test_embedding is not None and same_embedding is not None and diff_embedding is not None:
-                    # Compare with same person
-                    same_similarity = compute_similarity(test_embedding, same_embedding)
-                    print(f"Similarity with same person (Selena Gomez): {same_similarity:.4f}")
+                    # Initial run
+                    print(f"\nPerforming initial {detector} + {embedding_method} run...")
+                    initial_timings, initial_metrics = profile_pipeline(profiler, test_images[0], detector, embedding_method)
+                    if initial_timings:
+                        print_profiling_results(initial_timings, initial_metrics)
+                    else:
+                        print(f"Warning: Initial run with {detector} + {embedding_method} failed")
+                        continue
                     
-                    # Compare with different person
-                    diff_similarity = compute_similarity(test_embedding, diff_embedding)
-                    print(f"Similarity with different person (Bill Gates): {diff_similarity:.4f}")
-                else:
-                    print("Error: Could not compute similarities due to face detection failure")
-            
-            print("\n" + "="*80 + "\n")
+                    # Multiple runs for average
+                    print(f"\nPerforming multiple {detector} + {embedding_method} runs...")
+                    all_timings = []
+                    all_metrics = []
+                    for i, image_path in enumerate(test_images[1:], 1):
+                        print(f"\nProcessing image {i}/4...")
+                        timings, metrics = profile_pipeline(profiler, image_path, detector, embedding_method)
+                        if timings:
+                            all_timings.append(timings)
+                            all_metrics.append(metrics)
+                        else:
+                            print(f"Warning: Failed to process image {i}")
+                    
+                    if all_timings:
+                        avg_timings = {
+                            key: np.mean([t[key] for t in all_timings]) 
+                            for key in all_timings[0].keys()
+                        }
+                        std_timings = {
+                            key: np.std([t[key] for t in all_timings]) 
+                            for key in all_timings[0].keys()
+                        }
+                        
+                        print(f"\n{detector.upper()} + {embedding_method.upper()} Average Results (over {len(all_timings)} runs):")
+                        print("-" * 60)
+                        total_avg = sum(avg_timings.values())
+                        for step in avg_timings.keys():
+                            avg = avg_timings[step]
+                            std = std_timings[step]
+                            print(f"{step.replace('_', ' ').title():20}: {avg:.4f} ± {std:.4f} seconds")
+                        print("-" * 60)
+                        print(f"Total Pipeline Time:    {total_avg:.4f} seconds")
+                    else:
+                        print(f"No valid timing data collected for {detector} + {embedding_method}")
+                
+                print("\n" + "="*80 + "\n")
+                
+                # After the performance testing, add similarity testing
+                print("\n=== Similarity Testing ===")
+                test_image = "saved_faces/selenagomez_test.jpg"
+                same_person = "saved_faces/selenagomez.jpg"
+                different_person = "saved_faces/billgates.jpg"
+                
+                for detector in ['mediapipe', 'opencv']:
+                    print(f"\nTesting similarities using {detector} detector:")
+                    
+                    # Get embeddings with error handling
+                    test_embedding = get_embedding_from_image(profiler, test_image, detector, embedding_method)
+                    same_embedding = get_embedding_from_image(profiler, same_person, detector, embedding_method)
+                    diff_embedding = get_embedding_from_image(profiler, different_person, detector, embedding_method)
+                    
+                    if test_embedding is not None and same_embedding is not None and diff_embedding is not None:
+                        # Compare with same person
+                        same_similarity = compute_similarity(test_embedding, same_embedding)
+                        print(f"Similarity with same person (Selena Gomez): {same_similarity:.4f}")
+                        
+                        # Compare with different person
+                        diff_similarity = compute_similarity(test_embedding, diff_embedding)
+                        print(f"Similarity with different person (Bill Gates): {diff_similarity:.4f}")
+                    else:
+                        print("Error: Could not compute similarities due to face detection failure")
+                
+                print("\n" + "="*80 + "\n")
+            except Exception as e:
+                print(f"Error during profiling process: {e}")
+                import traceback
+                traceback.print_exc()
             
         except ValueError:
             print("Invalid input. Please enter a number between 1-4.")
