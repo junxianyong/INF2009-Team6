@@ -16,6 +16,8 @@ class FaceProfiler:
         self.padding = 0.2
         self._interpreter = None
         self.model_path = "mobilefacenet.tflite"
+        self.pb_model_path = "MobileFaceNet_9925_9680.pb"  # Add path to .pb model
+        self._pb_session = None  # Add session for .pb model
         self.vgg_model_path = "vgg16_feature_extractor.h5"
         self.vgg_tflite_path = "vgg16_feature_extractor.tflite"
         self.vgg_target_size = (224, 224)  # VGG required input size
@@ -33,6 +35,20 @@ class FaceProfiler:
             self._interpreter.allocate_tensors()
             print("Model loaded successfully.")
         return self._interpreter
+
+    def get_pb_session(self):
+        """Load and return the TensorFlow session for the .pb model."""
+        if self._pb_session is None:
+            print("Loading MobileFaceNet .pb model...")
+            with tf.io.gfile.GFile(self.pb_model_path, "rb") as f:
+                graph_def = tf.compat.v1.GraphDef()
+                graph_def.ParseFromString(f.read())
+            
+            with tf.compat.v1.Graph().as_default() as graph:
+                tf.import_graph_def(graph_def, name='')
+                self._pb_session = tf.compat.v1.Session(graph=graph)
+            print("PB Model loaded successfully.")
+        return self._pb_session
 
     def get_vgg_model(self):
         if self._vgg_model is None:
@@ -126,6 +142,13 @@ class FaceProfiler:
             interpreter.set_tensor(input_details[0]["index"], face_img)
             interpreter.invoke()
             embedding = interpreter.get_tensor(output_details[0]["index"])
+        elif method == 'mobilefacenet_pb':
+            session = self.get_pb_session()
+            # Get input and output tensors
+            input_tensor = session.graph.get_tensor_by_name('input:0')
+            output_tensor = session.graph.get_tensor_by_name('embeddings:0')
+            embedding = session.run(output_tensor, {input_tensor: face_img})
+            return embedding.flatten()
         elif method in ['vgg', 'vgg_tflite']:
             if method == 'vgg':
                 model = self.get_vgg_model()
@@ -235,7 +258,7 @@ def print_profiling_results(timings, metrics):
     print("\nTiming Results:")
     print("-" * 60)
     for step, time_taken in timings.items():
-        print(f"{step.replace('_', ' ').title():20}: {time_taken:.4f} seconds")
+        print(f"{step.replace('_', ' ').title(): {time_taken:.4f} seconds")
     
     print("\nSystem Metrics:")
     print("-" * 60)
@@ -321,22 +344,24 @@ def main():
     print("1. MobileFaceNet (TFLite)")
     print("2. VGG (Keras)")
     print("3. VGG (TFLite)")
+    print("4. MobileFaceNet (Original PB)")  # Add new option
     
     while True:
-        choice = input("\nSelect embedding method (1-3) or 'q' to quit: ")
+        choice = input("\nSelect embedding method (1-4) or 'q' to quit: ")
         if choice.lower() == 'q':
             break
             
         try:
             choice = int(choice)
-            if choice not in [1, 2, 3]:
-                print("Invalid choice. Please select 1-3.")
+            if choice not in [1, 2, 3, 4]:  # Update valid choices
+                print("Invalid choice. Please select 1-4.")
                 continue
                 
             embedding_method = {
                 1: 'mobilefacenet',
                 2: 'vgg',
-                3: 'vgg_tflite'
+                3: 'vgg_tflite',
+                4: 'mobilefacenet_pb'  # Add new method
             }[choice]
             
             # Start measuring metrics before model loading
@@ -349,8 +374,10 @@ def main():
                 profiler.get_tflite_interpreter()
             elif embedding_method == 'vgg':
                 profiler.get_vgg_model()
-            else:  # vgg_tflite
+            elif embedding_method == 'vgg_tflite':
                 profiler.get_vgg_tflite_interpreter()
+            else:  # mobilefacenet_pb
+                profiler.get_pb_session()
             
             # Collect metrics after model loading
             final_memory = process.memory_info().rss / 1024 / 1024
@@ -452,7 +479,7 @@ def main():
             print("\n" + "="*80 + "\n")
             
         except ValueError:
-            print("Invalid input. Please enter a number between 1-3.")
+            print("Invalid input. Please enter a number between 1-4.")
 
 if __name__ == "__main__":
     main()
