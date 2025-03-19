@@ -1,6 +1,6 @@
 # Description: Face verification system using only TFlite model
 # Make sure you have the tflite model (generate using convert_to_tflite.py)
-# OR download from https://drive.google.com/file/d/1Ry7pJ3tz78orypZg3OqLMtDDIf1u3bUU/view?usp=drive_link
+# OR download from https://drive.google.com/drive/folders/1eMMwx83z2gOaQSYb-AWKj05oLTAsBKvx?usp=drive_link
 
 import cv2
 import numpy as np
