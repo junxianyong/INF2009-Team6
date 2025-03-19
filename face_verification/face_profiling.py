@@ -151,12 +151,8 @@ class FaceProfiler:
             # Use correct tensor names from freeze.pb
             input_tensor = session.graph.get_tensor_by_name("input:0")
             output_tensor = session.graph.get_tensor_by_name("embeddings:0")
-            
-            # Apply same preprocessing as TFLite
             embedding = session.run(output_tensor, feed_dict={input_tensor: face_img})
             
-            # Apply L2 normalization to make it comparable with TFLite output
-            embedding = embedding / np.linalg.norm(embedding, axis=1, keepdims=True)
         elif method in ['vgg', 'vgg_tflite']:
             if method == 'vgg':
                 model = self.get_vgg_model()
@@ -167,13 +163,7 @@ class FaceProfiler:
                 output_details = interpreter.get_output_details()
                 interpreter.set_tensor(input_details[0]["index"], face_img)
                 interpreter.invoke()
-                embedding = interpreter.get_tensor(output_details[0]["index"])
-            
-            # Apply L2 normalization followed by scaling
-            embedding = embedding / np.linalg.norm(embedding, axis=1, keepdims=True)
-            # Add scaling factor to increase distances between embeddings
-            embedding = embedding * 10.0
-        
+                embedding = interpreter.get_tensor(output_details[0]["index"])        
         return embedding.flatten()
 
 def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_method='mobilefacenet'):
