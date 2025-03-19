@@ -9,12 +9,42 @@ import cProfile
 import pstats
 import tracemalloc
 
+"""
+Face Profiling Module
+
+This module provides face detection, embedding generation, and performance profiling capabilities
+using multiple models and detection methods. It supports:
+- MobileFaceNet (TFLite and PB formats)
+- VGG16 (Keras and TFLite formats)
+- Face detection using MediaPipe and OpenCV
+
+VGG Model files can be downloaded from:
+https://drive.google.com/drive/folders/1eMMwx83z2gOaQSYb-AWKj05oLTAsBKvx?usp=drive_link
+"""
+
 class FaceProfiler:
+    """
+    A class for face detection, embedding generation, and performance profiling.
+    
+    Attributes:
+        mp_face_detection: MediaPipe face detection module
+        target_size: Target size for MobileFaceNet input (112x112)
+        padding: Padding factor for face extraction
+        model_path: Path to MobileFaceNet TFLite model
+        pb_model_path: Path to MobileFaceNet PB model
+        vgg_model_path: Path to VGG16 Keras model
+        vgg_tflite_path: Path to VGG16 TFLite model
+        vgg_target_size: Target size for VGG16 input (224x224)
+    """
+
     def __init__(self):
+        # Initialize face detection components
         self.mp_face_detection = mp.solutions.face_detection
-        self.target_size = (112, 112)
-        self.padding = 0.2
-        self._interpreter = None
+        self.target_size = (112, 112)  # MobileFaceNet input size
+        self.padding = 0.2  # 20% padding around detected faces
+        
+        # Model paths and interpreters
+        self._interpreter = None  # MobileFaceNet TFLite interpreter
         self.model_path = "mobilefacenet.tflite"
         self.pb_model_path = "mobilefacenet_tf.pb"
         self._pb_session = None  # Add session for .pb model
@@ -29,6 +59,12 @@ class FaceProfiler:
         )
 
     def get_tflite_interpreter(self):
+        """
+        Load and return the MobileFaceNet TFLite interpreter.
+        
+        Returns:
+            tf.lite.Interpreter: Loaded TFLite interpreter for MobileFaceNet
+        """
         if self._interpreter is None:
             print("Loading MobileFaceNet TFLite model...")
             self._interpreter = tf.lite.Interpreter(model_path=self.model_path)
@@ -37,7 +73,12 @@ class FaceProfiler:
         return self._interpreter
 
     def get_pb_session(self):
-        """Load and return the TensorFlow session for the .pb model."""
+        """
+        Load and return the TensorFlow session for the .pb model.
+        
+        Returns:
+            tf.Session: TensorFlow session with loaded MobileFaceNet PB model
+        """
         if self._pb_session is None:
             print("Loading MobileFaceNet .pb model...")
             with tf.io.gfile.GFile(self.pb_model_path, "rb") as f:
@@ -53,6 +94,12 @@ class FaceProfiler:
         return self._pb_session
 
     def get_vgg_model(self):
+        """
+        Load and return the VGG16 Keras model.
+        
+        Returns:
+            tf.keras.Model: Loaded VGG16 model
+        """
         if self._vgg_model is None:
             print("Loading VGG16 model...")
             self._vgg_model = tf.keras.models.load_model(self.vgg_model_path)
@@ -60,6 +107,12 @@ class FaceProfiler:
         return self._vgg_model
 
     def get_vgg_tflite_interpreter(self):
+        """
+        Load and return the VGG16 TFLite interpreter.
+        
+        Returns:
+            tf.lite.Interpreter: Loaded TFLite interpreter for VGG16
+        """
         if self._vgg_interpreter is None:
             print("Loading VGG16 TFLite model...")
             self._vgg_interpreter = tf.lite.Interpreter(model_path=self.vgg_tflite_path)
@@ -68,7 +121,15 @@ class FaceProfiler:
         return self._vgg_interpreter
 
     def detect_face_mediapipe(self, frame):
-        """MediaPipe face detection implementation"""
+        """
+        Detect face in image using MediaPipe face detector.
+        
+        Args:
+            frame (np.ndarray): Input image in BGR format
+            
+        Returns:
+            tuple: (x, y, width, height) coordinates of detected face, or None if no face detected
+        """
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         with self.mp_face_detection.FaceDetection(
             model_selection=0,
@@ -87,7 +148,15 @@ class FaceProfiler:
         return None
 
     def detect_face_opencv(self, frame):
-        """OpenCV face detection implementation"""
+        """
+        Detect face in image using OpenCV's Haar Cascade classifier.
+        
+        Args:
+            frame (np.ndarray): Input image in BGR format
+            
+        Returns:
+            tuple: (x, y, width, height) coordinates of detected face, or None if no face detected
+        """
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = self.opencv_face_detector.detectMultiScale(
             gray,
@@ -101,6 +170,16 @@ class FaceProfiler:
         return None
 
     def extract_face(self, frame, face_location):
+        """
+        Extract face region from image with padding.
+        
+        Args:
+            frame (np.ndarray): Input image in BGR format
+            face_location (tuple): (x, y, width, height) coordinates of face
+            
+        Returns:
+            np.ndarray: Extracted face region with padding
+        """
         x, y, width, height = face_location
         h, w, _ = frame.shape
         
@@ -118,7 +197,16 @@ class FaceProfiler:
         return face
 
     def preprocess_face(self, face_img, model_type='mobilefacenet'):
-        """Preprocess face image according to model requirements."""
+        """
+        Preprocess face image according to model requirements.
+        
+        Args:
+            face_img (np.ndarray): Input face image in BGR format
+            model_type (str): Type of model ('mobilefacenet', 'mobilefacenet_pb', 'vgg', 'vgg_tflite')
+            
+        Returns:
+            np.ndarray: Preprocessed face image ready for model input
+        """
         if model_type in ['mobilefacenet', 'mobilefacenet_pb']:
             target_size = self.target_size
             face_img = cv2.resize(face_img, target_size)
@@ -139,6 +227,16 @@ class FaceProfiler:
         return np.expand_dims(face_normalized, axis=0)
 
     def get_face_embedding(self, face_img, method='mobilefacenet'):
+        """
+        Generate face embedding using specified method.
+        
+        Args:
+            face_img (np.ndarray): Preprocessed face image
+            method (str): Embedding method ('mobilefacenet', 'mobilefacenet_pb', 'vgg', 'vgg_tflite')
+            
+        Returns:
+            np.ndarray: Face embedding vector
+        """
         if method == 'mobilefacenet':
             interpreter = self.get_tflite_interpreter()
             input_details = interpreter.get_input_details()
@@ -167,7 +265,18 @@ class FaceProfiler:
         return embedding.flatten()
 
 def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_method='mobilefacenet'):
-    """Profile each step of the face processing pipeline with system metrics."""
+    """
+    Profile each step of the face processing pipeline with system metrics.
+    
+    Args:
+        profiler (FaceProfiler): Instance of FaceProfiler
+        image_path (str): Path to input image
+        detector (str): Face detector to use ('mediapipe' or 'opencv')
+        embedding_method (str): Embedding method to use
+        
+    Returns:
+        tuple: (timings dict, metrics dict) or (None, None) if error occurs
+    """
     timings = {}
     metrics = {
         'cpu': [],
@@ -291,12 +400,32 @@ def print_profiling_results(timings, metrics):
     print(f"Primitive Calls:        {metrics['primitive_calls']:6d}")
 
 def compute_similarity(embedding1, embedding2):
-    """Compute cosine similarity between two embeddings."""
+    """
+    Compute cosine similarity between two embeddings.
+    
+    Args:
+        embedding1 (np.ndarray): First embedding vector
+        embedding2 (np.ndarray): Second embedding vector
+        
+    Returns:
+        float: Cosine similarity score between 0 and 1
+    """
     from scipy.spatial.distance import cosine
     return 1 - cosine(embedding1, embedding2)
 
 def get_embedding_from_image(profiler, image_path, detector='mediapipe', embedding_method='mobilefacenet'):
-    """Get embedding from a single image."""
+    """
+    Get face embedding from a single image.
+    
+    Args:
+        profiler (FaceProfiler): Instance of FaceProfiler
+        image_path (str): Path to input image
+        detector (str): Face detector to use ('mediapipe' or 'opencv')
+        embedding_method (str): Embedding method to use
+        
+    Returns:
+        np.ndarray: Face embedding vector or None if error occurs
+    """
     frame = cv2.imread(image_path)
     if frame is None:
         print(f"Error: Could not read image {image_path}")
@@ -318,7 +447,12 @@ def get_embedding_from_image(profiler, image_path, detector='mediapipe', embeddi
     return embedding
 
 def measure_model_load_metrics():
-    """Measure memory and CPU usage during model loading."""
+    """
+    Measure memory and CPU usage during model loading.
+    
+    Returns:
+        tuple: (psutil.Process, tracemalloc, initial_io, metrics dict)
+    """
     process = psutil.Process()
     tracemalloc.start()
     
@@ -343,7 +477,12 @@ def measure_model_load_metrics():
     return process, tracemalloc, initial_io, metrics
 
 def print_model_load_metrics(metrics):
-    """Print metrics related to model loading."""
+    """
+    Print metrics related to model loading.
+    
+    Args:
+        metrics (dict): Dictionary containing model loading metrics
+    """
     print("\nModel Loading Metrics:")
     print("-" * 60)
     print(f"Initial Memory:         {metrics['initial_memory']:6.2f} MB")
@@ -357,6 +496,11 @@ def print_model_load_metrics(metrics):
     print(f"Load Time:             {metrics['load_time']:6.2f} seconds")
 
 def main():
+    """
+    Main function to run face profiling experiments.
+    Tests different face detection and embedding methods,
+    measures performance metrics, and compares face similarities.
+    """
     print("\nInitializing face profiler...")
     profiler = FaceProfiler()
 
