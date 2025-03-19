@@ -16,7 +16,7 @@ class FaceProfiler:
         self.padding = 0.2
         self._interpreter = None
         self.model_path = "mobilefacenet.tflite"
-        self.pb_model_path = "MobileFaceNet_9925_9680.pb"  # Add path to .pb model
+        self.pb_model_path = "mobilefacenet_tf.pb"
         self._pb_session = None  # Add session for .pb model
         self.vgg_model_path = "vgg16_feature_extractor.h5"
         self.vgg_tflite_path = "vgg16_feature_extractor.tflite"
@@ -47,6 +47,8 @@ class FaceProfiler:
             with tf.compat.v1.Graph().as_default() as graph:
                 tf.import_graph_def(graph_def, name='')
                 self._pb_session = tf.compat.v1.Session(graph=graph)
+                # Initialize variables if any
+                self._pb_session.run(tf.compat.v1.global_variables_initializer())
             print("PB Model loaded successfully.")
         return self._pb_session
 
@@ -123,6 +125,7 @@ class FaceProfiler:
             face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
             face_normalized = face_rgb.astype("float32")
             face_normalized = (face_normalized - 127.5) / 128.0
+            return np.expand_dims(face_normalized, axis=0)
         else:  # VGG preprocessing
             target_size = self.vgg_target_size
             face_img = cv2.resize(face_img, target_size)
@@ -145,9 +148,15 @@ class FaceProfiler:
             embedding = interpreter.get_tensor(output_details[0]["index"])
         elif method == 'mobilefacenet_pb':
             session = self.get_pb_session()
-            input_tensor = session.graph.get_tensor_by_name('input:0')
-            output_tensor = session.graph.get_tensor_by_name('embeddings:0')
-            embedding = session.run(output_tensor, {input_tensor: face_img})
+            # Use correct tensor names from freeze.pb
+            input_tensor = session.graph.get_tensor_by_name("input:0")
+            output_tensor = session.graph.get_tensor_by_name("embeddings:0")
+            
+            # Apply same preprocessing as TFLite
+            embedding = session.run(output_tensor, feed_dict={input_tensor: face_img})
+            
+            # Apply L2 normalization to make it comparable with TFLite output
+            embedding = embedding / np.linalg.norm(embedding, axis=1, keepdims=True)
         elif method in ['vgg', 'vgg_tflite']:
             if method == 'vgg':
                 model = self.get_vgg_model()
