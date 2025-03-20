@@ -4,19 +4,19 @@ from gate.enum.gate_types import GateType
 from gate.gate import Gate
 
 mqtt_config = {
-    "broker": "localhost",
+    "broker": "localhost", # TODO: CHANGE THIS
     "port": 1883,
     "username": "mosquitto",
     "password": "mosquitto",
 }
 
 update_config = {
-    "url": "https://files.testfile.org/PDF/",
-    "save_path": "gate1/update",
+    "url": "localhost:5000/api/biometrics/embeddings/2e048d59-cbfb-4444-a8b9-7d90430fa6ce/", # TODO: CHANGE THIS
+    "save_path": "update",
 }
 
 voice_auth_config = {
-    "voiceprints_file": "voiceprints.pkl",
+    "voiceprints_file": "update/voiceprints.pkl",
     "sr_rate": 44100,
     "num_mfcc": 20,
     "linear_threshold": 100,
@@ -24,8 +24,8 @@ voice_auth_config = {
 }
 
 face_verification_config = {
-    "model_path": "mobilefacenet.tflite",
-    "database_path": "face_embeddings.pkl",
+    "model_path": "model/mobilefacenet.tflite",
+    "database_path": "update/face_embeddings.pkl",
     # Face detection & preprocessing settings:
     "model_selection": 0,
     "min_detection_confidence": 0.7,
@@ -37,7 +37,7 @@ face_verification_config = {
     "verification_timeout": 30,
     "verification_max_attempts": 3,
     # Camera settings:
-    "camera_id": 0,
+    "camera_id": 0, # TODO: CHANGE THIS
 }
 
 driver_config = {
@@ -49,13 +49,13 @@ driver_config = {
         "dotsize": 8,
     },
     "servo": {
-        "pin": 14,
+        "pin": 4,
         "open_angle": 180,
         "close_angle": 0,
     },
     "ultrasonic": {
-        "echo": 12,
-        "trigger": 18,
+        "echo": 17,
+        "trigger": 27,
         "max_distance": 4,
         "window_size": 10,
         "calibration_step": 30,

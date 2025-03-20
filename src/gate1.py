@@ -4,19 +4,19 @@ from gate.enum.gate_types import GateType
 from gate.gate import Gate
 
 mqtt_config = {
-    "broker": "localhost",
+    "broker": "localhost", # TODO: CHANGE THIS
     "port": 1883,
     "username": "mosquitto",
     "password": "mosquitto",
 }
 
 update_config = {
-    "url": "https://files.testfile.org/PDF/",
-    "save_path": "gate1/update",
+    "url": "localhost:5000/api/biometrics/embeddings/2e048d59-cbfb-4444-a8b9-7d90430fa6ce/", # TODO: CHANGE THIS
+    "save_path": "update",
 }
 
 motion_detector_config = {
-    "camera_id": 0,
+    "camera_id": 0, # TODO: CHANGE THIS
     "resolution": (320, 240),
     "threshold": 25,
     "min_area": 500,
@@ -26,8 +26,8 @@ motion_detector_config = {
 }
 
 face_verification_config = {
-    "model_path": "mobilefacenet.tflite",
-    "database_path": "face_embeddings.pkl",
+    "model_path": "model/mobilefacenet.tflite",
+    "database_path": "update/face_embeddings.pkl",
     # Face detection & preprocessing settings:
     "model_selection": 0,
     "min_detection_confidence": 0.7,
@@ -39,12 +39,12 @@ face_verification_config = {
     "verification_timeout": 30,
     "verification_max_attempts": 3,
     # Camera settings:
-    "camera_id": 0,
+    "camera_id": 0, # TODO: CHANGE THIS
 }
 
 intruder_detection_config = {
-    "camera_index": 0,
-    "model": "./models/yolov5/yolov5n-fp16.tflite",
+    "camera_index": 0, # TODO: CHANGE THIS
+    "model": "model/yolov5n-fp16.tflite",
     "confidence": 0.2,
     "iou_threshold": 0.2,
     "directions": {"total": None, "inside": "bottom", "outside": "top"},
@@ -54,7 +54,7 @@ intruder_detection_config = {
 
 driver_config = {
     "buzzer": {
-        "pin": 13
+        "pin": 17
     },
     "lcd": {
         "address": 0x27,
@@ -64,12 +64,12 @@ driver_config = {
         "dotsize": 8,
     },
     "servo": {
-        "pin": 14,
+        "pin": 4,
         "open_angle": 180,
         "close_angle": 0,
     },
     "ultrasonic": {
-        "echo": 12,
+        "echo": 23,
         "trigger": 18,
         "max_distance": 4,
         "window_size": 10,
