@@ -32,6 +32,7 @@ def on_message(client, userdata, message):
 
 
 mqtt_client = Client(client_id="fog")
+mqtt_client.username_pw_set(getenv("MQTT_USERNAME"), getenv("MQTT_PASSWORD"))
 mqtt_client.on_connect = on_connect
 mqtt_client.on_message = on_message
 socketio_ = None
@@ -43,4 +44,4 @@ def connect_mqtt(socketio):
     mqtt_client.loop_start()
 
 def publish_mqtt(topic, payload):
-    mqtt_client.publish(topic, payload)
+    mqtt_client.publish(topic, payload, 2)
