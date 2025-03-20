@@ -110,7 +110,7 @@ def handle_enroll_biometrics(user_id):
     release_db(db)
 
     # Send mqtt message about updated biometrics
-    publish_mqtt("update/embeddings", dumps({"face": "face_embeddings.pkl", "voice": "voiceprints.pkl"}))
+    publish_mqtt("update/embedding", dumps({"face": "face_embeddings.pkl", "voice": "voiceprints.pkl"}))
 
     return {"message": "Biometrics enrolled successfully"}
 
@@ -160,6 +160,10 @@ def handle_delete_biometrics(user_id):
     cursor.execute("UPDATE users SET biometrics_enrolled = false WHERE id = %s", (user_id,))
     db.commit()
     release_db(db)
+
+    # Pull new embeddings
+    publish_mqtt("update/embedding", dumps({"face": "face_embeddings.pkl", "voice": "voiceprints.pkl"}))
+
     return {"message": "Biometrics deleted successfully"}
 
 
