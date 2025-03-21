@@ -3,6 +3,7 @@ from datetime import datetime
 
 from gate.enum.gate_types import GateType
 from gate.enum.states import GateState
+
 from utils.logger_mixin import LoggerMixin
 
 
@@ -111,6 +112,7 @@ class StateManager(LoggerMixin):
         """
         if state != self._last_logged_state:
             self.logger.info(f"State changed to: {state.name}")
+            self.gate.publisher.publish("state", state.name, 2)
             self._last_logged_state = state
 
         # If the state is not IDLE or WAITING_FOR_FACE, the system is busy
@@ -334,7 +336,7 @@ class StateManager(LoggerMixin):
                 return
             else:
                 self.gate.driver.display_text("Please speak again.")
-                self.logger.warning("Voice authentication failed. Retrying...") # Log warning
+                self.logger.warning("Voice authentication failed. Retrying...")  # Log warning
                 retries += 1
 
         # If authentication fails after 3 retries, capture the mismatch

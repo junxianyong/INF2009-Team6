@@ -1,4 +1,4 @@
-from json import dumps
+from json import loads
 from os import getenv
 
 from paho.mqtt.client import Client
@@ -27,7 +27,11 @@ def on_message(client, userdata, message):
             handle_alert(payload)
         case "state":
             if socketio_:
-                socketio_.emit("state", payload.decode("utf-8"), namespace="/api/states/listen")
+                # Assume payload is a byte string from MQTT, e.g., b'{"state":"IDLE"}'
+                payload_str = payload.decode("utf-8")  # Convert bytes to string
+                payload_json = loads(payload_str)  # Parse JSON string into dictionary
+                # state = payload_json.get("state")  # Extract "state"
+                socketio_.emit("state", payload_json, namespace="/api/states/listen")
                 # socketio_.start_background_task(socketio_.emit, "state", payload.decode("utf-8"), namespace="/api/states/listen")
 
 
