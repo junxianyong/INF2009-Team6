@@ -232,7 +232,6 @@ class StateManager(LoggerMixin):
 
         :return: This function does not return any value.
         """
-        self.gate.driver.display_text("Please wait.")
         self.gate.driver.alert()
         # No transitions - waits for command callback to change state
 
