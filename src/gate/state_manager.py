@@ -290,7 +290,7 @@ class StateManager(LoggerMixin):
 
         :return: None
         """
-        buffer = self.gate.intruder_detector.capture_intruder()
+        buffer = self.gate.face_verification.capture_mismatch()
         self.gate.publisher.publish(
             "alert",
             json.dumps(
@@ -319,7 +319,7 @@ class StateManager(LoggerMixin):
 
         while retries < 3:
             if self.gate.voice_auth.authenticate_user(self.gate.personnel_id):
-                open_gate(2)
+                self.gate.driver.open_gate()
                 self.gate.publisher.publish(
                     "gate_2/status",
                     json.dumps({"opened": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
@@ -330,7 +330,7 @@ class StateManager(LoggerMixin):
             else:
                 self.logger.warning("Voice authentication failed. Retrying...") # Log warning
                 retries += 1
-                
+
         # If authentication fails after 3 retries, capture the mismatch
         self.current_state = GateState.CAPTURE_MISMATCH
 

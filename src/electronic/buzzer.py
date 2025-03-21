@@ -31,7 +31,6 @@ class Buzzer:
     def start_continuous(self):
         """Turn the buzzer on continuously."""
         GPIO.output(self.buzzer, GPIO.HIGH)
-        print("Beep started")
 
     def stop(self):
         """Turn the buzzer off."""

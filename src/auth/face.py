@@ -1,3 +1,4 @@
+import base64
 import logging
 import os
 import pickle
@@ -291,7 +292,6 @@ class FaceVerification(LoggerMixin):
             self.logger.error(f"Error loading embeddings: {str(e)}")
             return {}
 
-
     def build_embedding_from_folder(self, base_folder):
         """
         Generates and stores face embeddings from a folder structure where each subfolder
@@ -318,13 +318,13 @@ class FaceVerification(LoggerMixin):
             return False
 
         embeddings_dict = {}
-        
+
         # Iterate through person folders
         for person_name in os.listdir(base_folder):
             person_folder = os.path.join(base_folder, person_name)
             if not os.path.isdir(person_folder):
                 continue
-                
+
             self.logger.info(f"Processing images for person: {person_name}")
             person_embeddings = []
 
@@ -332,9 +332,9 @@ class FaceVerification(LoggerMixin):
             for image_name in os.listdir(person_folder):
                 if not image_name.lower().endswith(('.png', '.jpg', '.jpeg')):
                     continue
-                    
+
                 img_path = os.path.join(person_folder, image_name)
-                
+
                 try:
                     self.logger.info(f"Processing {img_path}...")
                     img = cv2.imread(img_path)
@@ -351,7 +351,7 @@ class FaceVerification(LoggerMixin):
                     preprocessed_face = self.preprocess_face(face)
                     embedding = self.get_face_embedding(preprocessed_face)
                     person_embeddings.append(embedding)
-                    
+
                 except Exception as e:
                     self.logger.error(f"Error processing {img_path}: {str(e)}")
                     continue
@@ -366,7 +366,7 @@ class FaceVerification(LoggerMixin):
             self.save_face_embeddings(embeddings_dict)
             self.logger.info(f"Saved embeddings for {len(embeddings_dict)} persons")
             return True
-        
+
         self.logger.warning("No embeddings were generated")
         return False
 
@@ -410,7 +410,7 @@ class FaceVerification(LoggerMixin):
                 preprocessed_face = self.preprocess_face(face)
                 embedding = self.get_face_embedding(preprocessed_face)
                 person_embeddings.append(embedding)
-                
+
             except Exception as e:
                 self.logger.error(f"Error processing {img_path}: {str(e)}")
                 continue
@@ -420,7 +420,7 @@ class FaceVerification(LoggerMixin):
             self.save_face_embeddings(embeddings_dict)
             self.logger.info(f"Successfully processed {len(person_embeddings)} images for {person_name}")
             return True
-        
+
         self.logger.warning(f"No valid embeddings generated for {person_name}")
         return False
 
@@ -580,12 +580,33 @@ class FaceVerification(LoggerMixin):
         finally:
             cap.release()
 
-        if attempts == 0:
-            self.logger.warning("No face detected within the timeout period")
-        else:
-            self.logger.warning(f"Failed to verify face after {attempts} attempts")
+    def capture_mismatch(self):
+        # Open the camera
+        cap = cv2.VideoCapture(self.camera_id)
+        if not cap.isOpened():
+            self.logger.error("Error: Could not open camera.")
+            return
 
-        return None
+        # Capture a single frame
+        ret, frame = cap.read()
+        if ret:
+            # Encode the image in memory as JPEG
+            _, buffer = cv2.imencode('.jpg', frame)
+
+            # Convert the buffer to Base64
+            image_base64 = base64.b64encode(buffer).decode('utf-8')
+
+            # Release the camera
+            cap.release()
+
+            # Return the Base64-encoded image
+            return image_base64
+        else:
+            # Release the camera
+            cap.release()
+
+            self.logger.error("Failed to capture image.")
+            return None
 
 
 if __name__ == "__main__":
@@ -634,7 +655,7 @@ if __name__ == "__main__":
 
         # Use timestamp as filename
         filename = str(int(time.time()))
-        
+
         output_path = os.path.join(output_folder, f"{filename}.jpg")
 
         face_verifier.logger.info(f"Initializing camera {face_verifier.camera_id}...")

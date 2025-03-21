@@ -56,7 +56,6 @@ class Driver(LoggerMixin):
     def alert(self):
         self.buzzer.start_continuous()
         self.lcd.write_wrapped("Alert!")
-        self.logger.info("Alert!")
 
     def clear(self):
         if self.buzzer is not None:

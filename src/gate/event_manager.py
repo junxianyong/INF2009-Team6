@@ -52,7 +52,7 @@ class GateCallbackHandler(LoggerMixin):
         :return: None
         :rtype: None
         """
-        self.gate.logger.info(f"Received message: {text_payload} from topic: {topic}")
+        self.gate.logger.info(f"Received message: {text_payload[:20]} from topic: {topic}")
         if text_payload is None:
             return
 
@@ -79,7 +79,7 @@ class GateCallbackHandler(LoggerMixin):
             contain additional data related to the message.
         :return: None
         """
-        self.gate.logger.info(f"Received message: {text_payload} from topic: {topic}")
+        self.gate.logger.info(f"Received message: {text_payload[:20]} from topic: {topic}")
         if text_payload is None:
             return
 
@@ -103,10 +103,10 @@ class GateCallbackHandler(LoggerMixin):
 
         :return: None
         """
-        if payload["action"] == "open":
+        if payload["command"] == "open":
             self.gate.driver.open_gate()
             self.gate.state_manager.current_state = GateState.MANUAL_OPEN
-        elif payload["action"] == "close":
+        elif payload["command"] == "close":
             self.gate.driver.close_gate()
             self.gate.state_manager.current_state = GateState.WAITING_FOR_FACE
 
