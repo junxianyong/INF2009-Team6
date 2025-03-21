@@ -112,7 +112,11 @@ class StateManager(LoggerMixin):
         """
         if state != self._last_logged_state:
             self.logger.info(f"State changed to: {state.name}")
-            self.gate.publisher.publish("state", state.name, 2)
+            self.gate.publisher.publish(
+                "state",
+                json.dumps({"state": state.name}),
+                2,
+            )
             self._last_logged_state = state
 
         # If the state is not IDLE or WAITING_FOR_FACE, the system is busy
