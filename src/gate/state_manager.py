@@ -159,6 +159,7 @@ class StateManager(LoggerMixin):
         :raises Exception: If there is an issue during face verification or any related
                            subsequent process (e.g., opening the gate, publishing status).
         """
+        self.gate.driver.display_text("Verifying face. Please wait...")
         personnel_id = self.gate.face_verification.wait_for_face_and_verify()
         if personnel_id:
             self.gate.personnel_id = personnel_id
@@ -180,6 +181,7 @@ class StateManager(LoggerMixin):
 
         :raises ValueError: If the personnel passage state is invalid.
         """
+        self.gate.driver.display_text("Face verified. Please enter.")
         if self.gate.driver.personnel_passed():
             self.gate.driver.close_gate()
             self.current_state = GateState.CHECKING_MANTRAP
@@ -192,6 +194,7 @@ class StateManager(LoggerMixin):
 
         :return: None
         """
+        self.gate.driver.display_text("Please wait.")
         if self.gate.gate_type == GateType.GATE2:
             return
 
@@ -229,6 +232,7 @@ class StateManager(LoggerMixin):
 
         :return: This function does not return any value.
         """
+        self.gate.driver.display_text("Please wait.")
         self.gate.driver.alert()
         # No transitions - waits for command callback to change state
 
@@ -269,6 +273,7 @@ class StateManager(LoggerMixin):
                               verification process.
         :return: None
         """
+        self.gate.driver.display_text("Verifying face. Please wait...")
         personnel_id = self.gate.face_verification.wait_for_face_and_verify()
         self.logger.debug(
             f"Gate 2 personnel ID: {personnel_id} vs Gate 1 personnel ID {self.gate.personnel_id} is {personnel_id == self.gate.personnel_id}"
@@ -301,7 +306,7 @@ class StateManager(LoggerMixin):
             ),
             2,
         )
-        self.current_state = GateState.IDLE  # gate 1 takes over
+        self.current_state = GateState.IDLE  # gate 1 take over
 
     def _handle_verifying_voice(self):
         """
@@ -318,6 +323,7 @@ class StateManager(LoggerMixin):
         retries = 0
 
         while retries < 3:
+            self.gate.driver.display_text("Please speak now.")
             if self.gate.voice_auth.authenticate_user(self.gate.personnel_id):
                 self.gate.driver.open_gate()
                 self.gate.publisher.publish(
@@ -328,6 +334,7 @@ class StateManager(LoggerMixin):
                 self.current_state = GateState.WAITING_FOR_PASSAGE_G2
                 return
             else:
+                self.gate.driver.display_text("Please speak again.")
                 self.logger.warning("Voice authentication failed. Retrying...") # Log warning
                 retries += 1
 
@@ -347,6 +354,7 @@ class StateManager(LoggerMixin):
         :raises AttributeError: If the "gate" object is not properly initialized.
         :return: None
         """
+        self.gate.driver.display_text("Verified. Please enter.")
         if self.gate.driver.personnel_passed():
             self.gate.driver.close_gate()
             self.gate.publisher.publish(
