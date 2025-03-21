@@ -4,6 +4,7 @@ from electronic.buzzer import Buzzer
 from electronic.lcd import LCD
 from electronic.servo import Servo
 from electronic.ultrasonic import Ultrasonic
+
 from utils.logger_mixin import LoggerMixin
 
 
@@ -34,6 +35,7 @@ class Driver(LoggerMixin):
             ultrasonic_config.get("calibration_step")
         )
         self.logger = self.setup_logger(__name__, logging_level)
+        self.text = ""
 
     def open_gate(self):
         self.servo.set_door_open()
@@ -51,11 +53,13 @@ class Driver(LoggerMixin):
         return True
 
     def display_text(self, text: str):
-        self.lcd.write_wrapped(text)
+        if self.text != text:
+            self.text = text
+            self.lcd.write_wrapped(self.text)
+            self.logger.debug(f"Text displayed: {self.text}")
 
     def alert(self):
         self.buzzer.start_continuous()
-        self.lcd.write_wrapped("Alert!")
 
     def clear(self):
         if self.buzzer is not None:

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from time import sleep
 
 from gate.enum.gate_types import GateType
 from gate.enum.states import GateState
@@ -93,7 +94,6 @@ class StateManager(LoggerMixin):
         :param state: The new state to be assigned to the current state.
         :type state: str
         """
-        self.gate.driver.clear()
         self._current_state = state
         self._log_state_change(state)
 
@@ -111,6 +111,7 @@ class StateManager(LoggerMixin):
         :return: None
         """
         if state != self._last_logged_state:
+            self.gate.driver.clear()
             self.logger.info(f"State changed to: {state.name}")
             self.gate.publisher.publish(
                 "state",
@@ -238,6 +239,7 @@ class StateManager(LoggerMixin):
 
         :return: This function does not return any value.
         """
+        self.gate.driver.display_text("Intruder detected!")
         self.gate.driver.alert()
         # No transitions - waits for command callback to change state
 
@@ -328,7 +330,7 @@ class StateManager(LoggerMixin):
         retries = 0
 
         while retries < 3:
-            self.gate.driver.display_text("Please speak now.")
+            self.gate.driver.display_text("Verifying voice. Please speak.")
             if self.gate.voice_auth.authenticate_user(self.gate.personnel_id):
                 self.gate.driver.open_gate()
                 self.gate.publisher.publish(
@@ -339,7 +341,9 @@ class StateManager(LoggerMixin):
                 self.current_state = GateState.WAITING_FOR_PASSAGE_G2
                 return
             else:
-                self.gate.driver.display_text("Please speak again.")
+                if retries <= 2:
+                    self.gate.driver.display_text("Failed. Please try again.")
+                sleep(1)
                 self.logger.warning("Voice authentication failed. Retrying...")  # Log warning
                 retries += 1
 
