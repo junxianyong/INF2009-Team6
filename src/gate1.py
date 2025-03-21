@@ -21,8 +21,8 @@ motion_detector_config = {
     "threshold": 25,
     "min_area": 500,
     "blur_size": 5,
-    "check_interval": 1.0,
-    "fps": 1,  # Using 1 fps for low power consumption
+    "check_interval": 0.5, # Check every 0.5s
+    "fps": 10, # Use 10fps for lower CPU usage, but still responsive
 }
 
 face_verification_config = {
