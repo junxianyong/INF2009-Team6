@@ -302,7 +302,7 @@ class VoiceAuth(LoggerMixin):
             self._logger.error("Authentication failed.")
             return False
 
-    def _record_audio(self, filename, duration=5, rate=44100, chunk=1024, channels=1):
+    def _record_audio(self, filename, duration=3, rate=44100, chunk=1024, channels=1):
         """
         Records audio using the PyAudio library and saves it to a specified file.
 
