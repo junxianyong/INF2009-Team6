@@ -1,6 +1,8 @@
 import json
+from datetime import datetime
 
 from gate.enum.states import GateState
+
 from utils.logger_mixin import LoggerMixin
 
 
@@ -106,9 +108,19 @@ class GateCallbackHandler(LoggerMixin):
         if payload["command"] == "open":
             self.gate.driver.open_gate()
             self.gate.state_manager.current_state = GateState.MANUAL_OPEN
+            self.gate.publisher.publish(
+                "gate_1/status",
+                json.dumps({"closed": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
+                2,
+            )
         elif payload["command"] == "close":
             self.gate.driver.close_gate()
             self.gate.state_manager.current_state = GateState.WAITING_FOR_FACE
+            self.gate.publisher.publish(
+                "gate_1/status",
+                json.dumps({"closed": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
+                2,
+            )
 
     def _handle_gate2_status(self, payload):
         """
