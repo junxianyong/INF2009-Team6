@@ -22,6 +22,12 @@ voice_auth_config = {
     "linear_threshold": 100,
     "cos_threshold": 0.95,
 }
+# CHANGE VOICE
+# voice_auth_config = {
+#     "enrollment_file": "update/voiceprints.pkl",
+#     "sample_rate": 44100,
+#     "threshold": 0.70,
+# }
 
 face_verification_config = {
     "model_path": "model/mobilefacenet.tflite",

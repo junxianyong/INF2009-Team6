@@ -6,11 +6,13 @@ from pickle import load, dump
 from shutil import copy
 from uuid import uuid4
 
+from flask import request, send_file
+
 from biometrics.face import FaceVerification
+# from biometrics.voicev2 import VoiceAuth # CHANGE VOICE
 from biometrics.voice import VoiceAuth
 from utils.db import get_db, release_db
 from utils.mqtt import publish_mqtt
-from flask import request, send_file
 
 raw_files_folder = "biometrics/files"
 embeddings_folder = "biometrics/embeddings"
@@ -36,13 +38,21 @@ face_verification_config = {
     # Camera settings:
     "camera_id": 0,
 }
+
 voice_auth_config = {
-    "voiceprints_file": "biometrics/embeddings/voiceprints.pkl",
+    "voiceprints_file": "update/voiceprints.pkl",
     "sr_rate": 44100,
     "num_mfcc": 20,
     "linear_threshold": 100,
     "cos_threshold": 0.95,
 }
+# CHANGE VOICE
+# voice_auth_config = {
+#     "enrollment_file": "update/voiceprints.pkl",
+#     "sample_rate": 44100,
+#     "threshold": 0.70,
+# }
+
 face_verification = FaceVerification(face_verification_config)
 voice_auth = VoiceAuth(voice_auth_config)
 
@@ -81,12 +91,12 @@ def handle_enroll_biometrics(user_id):
     for _ in ("face_embeddings.pkl", "voiceprints.pkl"):
         try:
             copy(join(embeddings_folder, _), join(backups_folder, _))
-        except FileNotFoundError: # No embedding yet
+        except FileNotFoundError:  # No embedding yet
             pass
 
     # Build face embeddings
     face_success = face_verification.build_embedding_from_images(face_paths, user.get("username"))
-    voice_success = voice_auth.enroll_user(user.get("username"), [voice_path])
+    voice_success = voice_auth.enroll_user(user.get("username"), voice_path)
 
     # Enrollment failed
     if not (face_success and voice_success):
@@ -168,7 +178,6 @@ def handle_delete_biometrics(user_id):
 
 
 def handle_get_embeddings(token, filename):
-
     # Pre-shared token for security
     if token != getenv("EMBEDDINGS_TOKEN"):
         return {"message": "You are not authorised to get the embeddings"}, 401
@@ -178,6 +187,3 @@ def handle_get_embeddings(token, filename):
         return {"message": "Invalid filename"}, 400
 
     return send_file(join(embeddings_folder, filename), as_attachment=True)
-
-
-
