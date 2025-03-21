@@ -110,7 +110,7 @@ class GateCallbackHandler(LoggerMixin):
             self.gate.state_manager.current_state = GateState.MANUAL_OPEN
             self.gate.publisher.publish(
                 "gate_1/status",
-                json.dumps({"closed": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
+                json.dumps({"opened": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}),
                 2,
             )
         elif payload["command"] == "close":
