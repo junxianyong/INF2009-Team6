@@ -133,15 +133,15 @@ def handle_gate_status(topic, payload):
     # Parse payload
     try:
         action, timestamp = list(json.loads(payload).items())[0]
-        if action not in ("open", "close") or not match("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", timestamp):
+        if action not in ("opened", "closed") or not match("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$", timestamp):
             raise ValueError
     except (IndexError, JSONDecodeError, ValueError):
         print(f"[MQTT] Received invalid payload on {topic}")
         release_db(db)
         return
 
-    action = "OPENED" if action == "open" else "CLOSED"
-
+    action = "OPENED" if action == "opened" else "CLOSED"
+    print(f"[MQTT] Received {action} on {topic} at {timestamp}")
     # Update database
     cursor.execute(f"UPDATE mantraps SET {gate}_status = %s", (action,))
 

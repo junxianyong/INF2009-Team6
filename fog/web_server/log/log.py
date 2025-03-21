@@ -93,7 +93,7 @@ def handle_alert(payload):
     payload = loads(payload)
 
     # Check valid payload
-    message, picture = payload.get("message"), payload.get("picture")
+    message, picture = payload.get("type"), payload.get("image")
 
     if message not in ("multi", "diff"):
         print("[MQTT] Invalid alert message")
