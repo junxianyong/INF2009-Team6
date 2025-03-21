@@ -272,7 +272,8 @@ class MotionDetector(LoggerMixin):
 
         except KeyboardInterrupt:
             self.logger.debug("Motion detection interrupted")
-            return False
+            self._stop()  # Ensure camera is released
+            raise  # Re-raise to propagate the interrupt
         except Exception as e:
             self.logger.error(f"Error during motion detection: {e}")
             return False
