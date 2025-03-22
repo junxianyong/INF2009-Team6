@@ -250,7 +250,7 @@ class VoiceAuth(LoggerMixin):
 
         self._logger.info("Recording audio for authentication...")
 
-        test_filename = "test_sample.wav"
+        test_filename = "testfeature.wav"
         self._record_audio(test_filename)
         test_features = self._extract_features(test_filename)
         test_hashed_words = self._hash_string(self._extract_words(test_filename))
@@ -263,7 +263,6 @@ class VoiceAuth(LoggerMixin):
             self._logger.debug(user)  # Changed from info to debug
         if user_name not in voiceprints:
             self._logger.error("User not found!")
-            os.remove(test_filename)
             return False
 
         enrolled_data = voiceprints[user_name]
@@ -291,6 +290,7 @@ class VoiceAuth(LoggerMixin):
             # retry with noise reduction using noise estimate
             denoised = self._denoise_audio(test_features)
             avg_distance = self._avg_distance(denoised, enrolled_data)
+            print("avg denoised distance:", avg_distance)
             if (
                     avg_distance < self._linear_threshold
                     and any(hash_matches)
@@ -299,7 +299,7 @@ class VoiceAuth(LoggerMixin):
                     "Authentication successful after noise reduction!"
                 )  # Kept as info - important result
                 return True
-            
+
             self._logger.error("Authentication failed.")
             return False
 
@@ -308,12 +308,12 @@ class VoiceAuth(LoggerMixin):
         Denoises an audio file using a precomputed noise estimate
         """
         if noise_estimate is None:
-            noise_estimate = [
+            noise_estimate = np.array([
                 170.54712, -48.018562, 17.246204, -13.663334, 7.189887, -4.389717,
                 -1.721005, 5.3081093, -11.996632, 10.081416, -13.445624, 10.629371,
                 -11.295172, 13.201625, -12.11922, 12.774132, -11.278639, 8.4435,
                 -8.738363, 7.0353045
-            ]
+            ])
         return test_features - (noise_estimate * scale)
 
     def _avg_distance(self, test_features, enrolled_data):
@@ -403,12 +403,7 @@ if __name__ == "__main__":
     va = VoiceAuth(voice_auth_config, logging.DEBUG)
 
     print(f"Enrolling {USER1_TO_ENROLL} now")  # Changed from info to debug
-    va._record_audio("ck_sample0.wav")
-    va._record_audio("ck_sample1.wav")
-    va.enroll_user(USER1_TO_ENROLL, ["ck_sample0.wav", "ck_sample1.wav"])
-
-    print(f"Enrolling {USER2_TO_ENROLL} now")  # Changed from info to debug
-    # va.enroll_user(USER2_TO_ENROLL, ["sample0.wav"])
+    va.enroll_user(USER1_TO_ENROLL, ["web.wav"])
 
     time.sleep(2)
     print(f"Authenticating {USER_TO_AUTH} now")  # Changed from info to debug
