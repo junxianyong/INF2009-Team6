@@ -9,6 +9,7 @@ import librosa
 import numpy as np
 import pyaudio
 import speech_recognition as sr
+import noisereduce as nr
 from scipy.spatial.distance import cosine
 from sympy.physics.units import micro
 
@@ -266,16 +267,8 @@ class VoiceAuth(LoggerMixin):
             return False
 
         enrolled_data = voiceprints[user_name]
-        distances = [
-            np.linalg.norm(test_features - sample["features"])
-            for sample in enrolled_data
-        ]
-        similarities = [
-            1 - cosine(test_features, sample["features"]) for sample in enrolled_data
-        ]
 
-        avg_distance = np.mean(distances)
-        avg_similarity = np.mean(similarities)
+        avg_distance = self._avg_distance(test_features, enrolled_data)
 
         # Check if the test hashed word matches any enrolled sample's hash.
         hash_matches = [
@@ -283,15 +276,11 @@ class VoiceAuth(LoggerMixin):
         ]
 
         self._logger.debug(f"Distance: {avg_distance}")  # Changed from info to debug
-        self._logger.debug(
-            f"Similarity: {avg_similarity}"
-        )  # Changed from info to debug
 
         os.remove(test_filename)
 
         if (
                 avg_distance < self._linear_threshold
-                and avg_similarity > self._cos_threshold
                 and any(hash_matches)
         ):
             self._logger.info(
@@ -299,8 +288,45 @@ class VoiceAuth(LoggerMixin):
             )  # Kept as info - important result
             return True
         else:
+            # retry with noise reduction using noise estimate
+            denoised = self._denoise_audio(test_features)
+            avg_distance = self._avg_distance(denoised, enrolled_data)
+            if (
+                    avg_distance < self._linear_threshold
+                    and any(hash_matches)
+            ):
+                self._logger.info(
+                    "Authentication successful after noise reduction!"
+                )  # Kept as info - important result
+                return True
+            
             self._logger.error("Authentication failed.")
             return False
+
+    def _denoise_audio(self, test_features, scale = 0.9, noise_estimate = None):
+        """
+        Denoises an audio file using a precomputed noise estimate
+        """
+        if noise_estimate is None:
+            noise_estimate = [
+                170.54712, -48.018562, 17.246204, -13.663334, 7.189887, -4.389717,
+                -1.721005, 5.3081093, -11.996632, 10.081416, -13.445624, 10.629371,
+                -11.295172, 13.201625, -12.11922, 12.774132, -11.278639, 8.4435,
+                -8.738363, 7.0353045
+            ]
+        return test_features - (noise_estimate * scale)
+
+    def _avg_distance(self, test_features, enrolled_data):
+        """
+        Calculate the average distance between the test features and the enrolled data
+        """
+        distances = [np.linalg.norm(test_features - sample["features"]) for sample in enrolled_data]
+        return np.mean(distances)
+    def _noisereducer(self, y, sr):
+        """
+        Reduces noise from the audio signal using the noisereduce library
+        """
+        return nr.reduce_noise(y, sr =self._sr_rate)
 
     def _record_audio(self, filename, duration=3, rate=44100, chunk=1024, channels=1):
         """
@@ -351,11 +377,13 @@ class VoiceAuth(LoggerMixin):
         stream.close()
         audio.terminate()
 
+        denoised = self._noisereducer(np.frombuffer(b"".join(frames), dtype=np.int16), rate)
+
         with wave.open(filename, "wb") as wf:
             wf.setnchannels(channels)
             wf.setsampwidth(audio.get_sample_size(pyaudio.paInt16))
             wf.setframerate(rate)
-            wf.writeframes(b"".join(frames))
+            wf.writeframes(denoised.tobytes())
 
 
 if __name__ == "__main__":
