@@ -201,8 +201,41 @@ class FaceVerification(LoggerMixin):
         :return: A preprocessed face image as a numpy array with normalized
             pixel values, suitable for further model input.
         """
+        # Helper functions for image preprocessing
+        def adjust_white_balance(img):
+            result = cv2.cvtColor(img.astype('uint8'), cv2.COLOR_BGR2LAB)
+            avg_a = np.average(result[:, :, 1])
+            avg_b = np.average(result[:, :, 2])
+            result[:, :, 1] = result[:, :, 1] - ((avg_a - 128) * (result[:, :, 0] / 255.0) * 1.1)
+            result[:, :, 2] = result[:, :, 2] - ((avg_b - 128) * (result[:, :, 0] / 255.0) * 1.1)
+            return cv2.cvtColor(result, cv2.COLOR_LAB2BGR).astype('float32')
+
+        def adjust_gamma(img, gamma=1.0):
+            return ((img / 255.0) ** gamma * 255.0).astype('uint8')
+
+        def normalize_contrast(img):
+            lab = cv2.cvtColor(img.astype('uint8'), cv2.COLOR_BGR2LAB)
+            l, a, b = cv2.split(lab)
+            l_norm = ((l - l.min()) * (255.0 / (l.max() - l.min()))).astype('uint8')
+            return cv2.cvtColor(cv2.merge([l_norm, a, b]), cv2.COLOR_LAB2BGR).astype('float32')
+
+        # Resize if necessary
         if face_img.shape[:2] != self.target_size:
             face_img = cv2.resize(face_img, self.target_size)
+
+        # Calculate average brightness and determine gamma value
+        avg_brightness = np.mean(cv2.cvtColor(face_img.astype('uint8'), cv2.COLOR_BGR2GRAY))
+        if avg_brightness < 20:  # Very dark images
+            gamma = 0.3  # Aggressive brightening
+        elif avg_brightness < 128:  # Dark images
+            gamma = 0.7  # Moderate brightening
+        else:  # Bright images
+            gamma = 1.2  # Slight darkening
+
+        # Apply image corrections in sequence
+        face_balanced = adjust_white_balance(face_img)
+        face_gamma = adjust_gamma(face_balanced, gamma)
+        face_normalized = normalize_contrast(face_gamma)
 
         face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
         face_normalized = face_rgb.astype("float32")

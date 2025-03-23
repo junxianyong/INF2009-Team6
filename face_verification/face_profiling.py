@@ -227,6 +227,11 @@ class FaceProfiler:
         # Convert to float32 for processing
         face_img = face_img.astype('float32')
         
+        # Resize if necessary
+        if face_img.shape[:2] != self.target_size:
+            face_img = cv2.resize(face_img, self.target_size
+        )
+
         if self.auto_correction:
             # 1. Color balance correction
             def adjust_white_balance(img):
@@ -270,12 +275,10 @@ class FaceProfiler:
 
         # 4. Model-specific preprocessing
         if model_type in ['mobilefacenet', 'mobilefacenet_pb']:
-            face_resized = cv2.resize(face_normalized, self.target_size)
-            face_rgb = cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB)
+            face_rgb = cv2.cvtColor(face_normalized, cv2.COLOR_BGR2RGB)
             processed_face = (face_rgb - 127.5) / 128.0
         else:  # VGG preprocessing
-            face_resized = cv2.resize(face_normalized, self.vgg_target_size)
-            face_rgb = cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB)
+            face_rgb = cv2.cvtColor(face_normalized, cv2.COLOR_BGR2RGB)
             processed_face = face_rgb.copy()
             processed_face[..., 0] -= 103.939
             processed_face[..., 1] -= 116.779
@@ -284,7 +287,7 @@ class FaceProfiler:
         # Save final processed face if requested
         if save_debug and person_name != 'unknown':
             debug_path = os.path.join(self.debug_output_dir, detector)
-            cv2.imwrite(os.path.join(debug_path, f"{person_name}.jpg"), face_resized.astype('uint8'))
+            cv2.imwrite(os.path.join(debug_path, f"{person_name}.jpg"), face_normalized.astype('uint8'))
         
         return np.expand_dims(processed_face, axis=0)
 
@@ -581,7 +584,7 @@ def main():
     debug_mode = False
     
     # Add auto-correction option for image processing (color balance, gamma, contrast)
-    auto_correction = False
+    auto_correction = True
     
     profiler = FaceProfiler(debug_mode=debug_mode, auto_correction=auto_correction)
 
