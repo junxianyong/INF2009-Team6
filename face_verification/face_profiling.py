@@ -27,24 +27,28 @@ class FaceProfiler:
     A class for face detection, embedding generation, and performance profiling.
     
     Attributes:
-        mp_face_detection: MediaPipe face detection module
-        target_size: Target size for MobileFaceNet input (112x112)
-        padding: Padding factor for face extraction
-        model_path: Path to MobileFaceNet TFLite model
-        pb_model_path: Path to MobileFaceNet PB model
-        vgg_model_path: Path to VGG16 Keras model
-        vgg_tflite_path: Path to VGG16 TFLite model
-        vgg_target_size: Target size for VGG16 input (224x224)
+        mp_face_detection (mediapipe.solutions.face_detection): MediaPipe face detection instance
+        target_size (tuple): Target size for face images
+        padding (float): Padding ratio for face extraction
+        _interpreter (tf.lite.Interpreter): TFLite interpreter for MobileFaceNet
+        model_path (str): Path to MobileFaceNet TFLite model
+        pb_model_path (str): Path to MobileFaceNet PB model
+        _pb_session (tf.Session): TensorFlow session for MobileFaceNet PB model
+        vgg_model_path (str): Path to VGG16 Keras model
+        vgg_tflite_path (str): Path to VGG16 TFLite model
+        vgg_target_size (tuple): Target size for VGG16 model
+        _vgg_model (tf.keras.Model): VGG16 Keras model
+        _vgg_interpreter (tf.lite.Interpreter): TFLite interpreter for VGG16
+        opencv_face_detector (cv2.CascadeClassifier): OpenCV Haar Cascade face detector
+        debug_mode (bool): Whether to save intermediate processing steps
+        auto_correction (bool): Whether to enable automatic image corrections
+        debug_output_dir (str): Directory to save debug images
     """
-
-    def __init__(self):
-        # Initialize face detection components
+    def __init__(self, debug_mode=False, auto_correction=True):
         self.mp_face_detection = mp.solutions.face_detection
-        self.target_size = (112, 112)  # MobileFaceNet input size
-        self.padding = 0.2  # 20% padding around detected faces
-        
-        # Model paths and interpreters
-        self._interpreter = None  # MobileFaceNet TFLite interpreter
+        self.target_size = (112, 112)
+        self.padding = 0.2
+        self._interpreter = None
         self.model_path = "mobilefacenet.tflite"
         self.pb_model_path = "mobilefacenet_tf.pb"
         self._pb_session = None  # Add session for .pb model
@@ -57,6 +61,13 @@ class FaceProfiler:
         self.opencv_face_detector = cv2.CascadeClassifier(
             cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
         )
+        self.debug_mode = debug_mode
+        self.auto_correction = auto_correction
+        self.debug_output_dir = "debug_faces"
+        # Create directories for each detector
+        if self.debug_mode:
+            for detector in ['opencv', 'mediapipe']:
+                os.makedirs(os.path.join(self.debug_output_dir, detector), exist_ok=True)
 
     def get_tflite_interpreter(self):
         """
@@ -196,35 +207,86 @@ class FaceProfiler:
                 
         return face
 
-    def preprocess_face(self, face_img, model_type='mobilefacenet'):
+    def preprocess_face(self, face_img, model_type='mobilefacenet', save_debug=None, detector='mediapipe', person_name='unknown'):
         """
-        Preprocess face image according to model requirements.
+        Preprocess face image according to model requirements with enhanced standardization.
         
         Args:
             face_img (np.ndarray): Input face image in BGR format
             model_type (str): Type of model ('mobilefacenet', 'mobilefacenet_pb', 'vgg', 'vgg_tflite')
+            save_debug (bool): Whether to save intermediate processing steps
+            detector (str): The detector used ('mediapipe' or 'opencv')
+            person_name (str): Name of the person for saving the debug image
             
         Returns:
             np.ndarray: Preprocessed face image ready for model input
         """
-        if model_type in ['mobilefacenet', 'mobilefacenet_pb']:
-            target_size = self.target_size
-            face_img = cv2.resize(face_img, target_size)
-            face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
-            face_normalized = face_rgb.astype("float32")
-            face_normalized = (face_normalized - 127.5) / 128.0
-            return np.expand_dims(face_normalized, axis=0)
-        else:  # VGG preprocessing
-            target_size = self.vgg_target_size
-            face_img = cv2.resize(face_img, target_size)
-            face_rgb = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
-            face_normalized = face_rgb.astype("float32")
-            # Use ImageNet preprocessing for VGG
-            face_normalized[..., 0] -= 103.939
-            face_normalized[..., 1] -= 116.779
-            face_normalized[..., 2] -= 123.68
+        # Use class debug_mode if save_debug is not explicitly set
+        save_debug = self.debug_mode if save_debug is None else save_debug
         
-        return np.expand_dims(face_normalized, axis=0)
+        # Convert to float32 for processing
+        face_img = face_img.astype('float32')
+        
+        if self.auto_correction:
+            # 1. Color balance correction
+            def adjust_white_balance(img):
+                result = cv2.cvtColor(img.astype('uint8'), cv2.COLOR_BGR2LAB)
+                avg_a = np.average(result[:, :, 1])
+                avg_b = np.average(result[:, :, 2])
+                result[:, :, 1] = result[:, :, 1] - ((avg_a - 128) * (result[:, :, 0] / 255.0) * 1.1)
+                result[:, :, 2] = result[:, :, 2] - ((avg_b - 128) * (result[:, :, 0] / 255.0) * 1.1)
+                return cv2.cvtColor(result, cv2.COLOR_LAB2BGR).astype('float32')
+            
+            # 2. Modified gamma correction for better handling of dark images
+            def adjust_gamma(img, gamma=1.0):
+                # Ensure gamma is inverted for dark images to make them brighter
+                return ((img / 255.0) ** gamma * 255.0).astype('uint8')
+
+            # Calculate average brightness and adjust gamma accordingly
+            avg_brightness = np.mean(cv2.cvtColor(face_img.astype('uint8'), cv2.COLOR_BGR2GRAY))
+            
+            if avg_brightness < 20:  # Very dark images
+                gamma = 0.3  # Aggressive brightening
+            elif avg_brightness < 128:  # Dark images
+                gamma = 0.7  # Moderate brightening
+            else:  # Bright images
+                gamma = 1.2  # Slight darkening
+                        
+            # Apply corrections
+            face_balanced = adjust_white_balance(face_img)
+            face_gamma = adjust_gamma(face_balanced, gamma)
+            
+            # 3. Contrast normalization using simple linear scaling
+            def normalize_contrast(img):
+                lab = cv2.cvtColor(img.astype('uint8'), cv2.COLOR_BGR2LAB)
+                l, a, b = cv2.split(lab)
+                # Normalize L channel to spread full range
+                l_norm = ((l - l.min()) * (255.0 / (l.max() - l.min()))).astype('uint8')
+                return cv2.cvtColor(cv2.merge([l_norm, a, b]), cv2.COLOR_LAB2BGR).astype('float32')
+            
+            face_normalized = normalize_contrast(face_gamma)
+        else:
+            face_normalized = face_img  # Skip auto-corrections
+
+        # 4. Model-specific preprocessing
+        if model_type in ['mobilefacenet', 'mobilefacenet_pb']:
+            face_resized = cv2.resize(face_normalized, self.target_size)
+            face_rgb = cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB)
+            processed_face = (face_rgb - 127.5) / 128.0
+        else:  # VGG preprocessing
+            face_resized = cv2.resize(face_normalized, self.vgg_target_size)
+            face_rgb = cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB)
+            processed_face = face_rgb.copy()
+            processed_face[..., 0] -= 103.939
+            processed_face[..., 1] -= 116.779
+            processed_face[..., 2] -= 123.68
+        
+        # Save final processed face if requested
+        if save_debug and person_name != 'unknown':
+            debug_path = os.path.join(self.debug_output_dir, detector)
+            cv2.imwrite(os.path.join(debug_path, f"{person_name}.jpg"), face_resized.astype('uint8'))
+        
+        return np.expand_dims(processed_face, axis=0)
 
     def get_face_embedding(self, face_img, method='mobilefacenet'):
         """
@@ -307,6 +369,9 @@ def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_metho
             print(f"Error: Could not read image {image_path}")
             return None, None
         
+        # Extract person name from image path
+        person_name = os.path.splitext(os.path.basename(image_path))[0]
+        
         # Face detection timing and metrics
         start_time = time.time()
         if detector == 'mediapipe':
@@ -330,9 +395,15 @@ def profile_pipeline(profiler, image_path, detector='mediapipe', embedding_metho
         metrics['cpu'].append(process.cpu_percent())
         metrics['memory'].append(process.memory_info().rss / 1024 / 1024)
         
-        # Preprocessing timing and metrics
+        # Preprocessing timing and metrics - Now with save_debug=True
         start_time = time.time()
-        preprocessed_face = profiler.preprocess_face(face, 'mobilefacenet' if 'mobilefacenet' in embedding_method else embedding_method)
+        preprocessed_face = profiler.preprocess_face(
+            face, 
+            'mobilefacenet' if 'mobilefacenet' in embedding_method else embedding_method,
+            save_debug=True,  # Enable debug saving
+            detector=detector,
+            person_name=person_name
+        )
         timings['preprocessing'] = time.time() - start_time
         
         metrics['cpu'].append(process.cpu_percent())
@@ -431,6 +502,9 @@ def get_embedding_from_image(profiler, image_path, detector='mediapipe', embeddi
         print(f"Error: Could not read image {image_path}")
         return None
     
+    # Extract person name from image path
+    person_name = os.path.splitext(os.path.basename(image_path))[0]
+    
     if detector == 'mediapipe':
         face_location = profiler.detect_face_mediapipe(frame)
     else:
@@ -441,7 +515,7 @@ def get_embedding_from_image(profiler, image_path, detector='mediapipe', embeddi
         return None
     
     face = profiler.extract_face(frame, face_location)
-    preprocessed_face = profiler.preprocess_face(face, embedding_method)
+    preprocessed_face = profiler.preprocess_face(face, embedding_method, save_debug=True, detector=detector, person_name=person_name)
     embedding = profiler.get_face_embedding(preprocessed_face, embedding_method)
     
     return embedding
@@ -502,7 +576,14 @@ def main():
     measures performance metrics, and compares face similarities.
     """
     print("\nInitializing face profiler...")
-    profiler = FaceProfiler()
+    
+    # Add debug mode selection before model selection (for saving debug images)
+    debug_mode = False
+    
+    # Add auto-correction option for image processing (color balance, gamma, contrast)
+    auto_correction = False
+    
+    profiler = FaceProfiler(debug_mode=debug_mode, auto_correction=auto_correction)
 
     # Available models
     print("\nAvailable embedding methods:")
