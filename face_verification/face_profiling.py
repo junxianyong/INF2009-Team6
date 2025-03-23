@@ -227,11 +227,16 @@ class FaceProfiler:
         # Convert to float32 for processing
         face_img = face_img.astype('float32')
         
+        # Resize according to model type
+        if model_type in ['vgg', 'vgg_tflite']:
+            target_size = self.vgg_target_size  # Use VGG target size (224,224)
+        else:
+            target_size = self.target_size  # Use default size (112,112)
+            
         # Resize if necessary
-        if face_img.shape[:2] != self.target_size:
-            face_img = cv2.resize(face_img, self.target_size
-        )
-
+        if face_img.shape[:2] != target_size:
+            face_img = cv2.resize(face_img, target_size)
+            
         if self.auto_correction:
             # 1. Color balance correction
             def adjust_white_balance(img):

@@ -75,13 +75,97 @@ pip install -r requirements.txt
 
 This section details how the face verification system works using the `face_verification_mobilefacenet.py` script. It uses the MobileFaceNet TFLite model for generating face embeddings and MediaPipe for face detection.
 
+#### Configuration
+
+The system can be configured through a dictionary containing various parameters:
+
+```python
+face_verification_config = {
+    "model_path": "mobilefacenet.tflite",
+    "database_path": "face_embeddings.pkl",
+    # Face detection & preprocessing settings:
+    "model_selection": 0,
+    "min_detection_confidence": 0.7,
+    "padding": 0.2,
+    "face_required_size": (512, 512),
+    "target_size": (112, 112),
+    # Verification settings:
+    "verification_threshold": 0.7,
+    "verification_timeout": 30,
+    "verification_max_attempts": 3,
+    # Camera settings:
+    "camera_id": 0,
+}
+```
+
+#### Enhanced Image Preprocessing
+
+The system includes advanced image preprocessing techniques to improve face recognition accuracy:
+
+1. **White Balance Correction**: Adjusts color balance using LAB color space
+2. **Adaptive Gamma Correction**: Dynamically adjusts image brightness based on average luminance
+3. **Contrast Normalization**: Enhances image contrast using LAB color space
+4. **Model-Specific Normalization**: Applies final normalization based on model requirements
+
 #### Workflow:
 
-1.  **Face Detection**: Utilizes MediaPipe's face detection model to locate faces within an image or video frame.
-2.  **Face Extraction**: Extracts the detected face from the image, applying padding to include contextual information.
-3.  **Preprocessing**: Preprocesses the extracted face to match the input requirements of the MobileFaceNet model, including resizing and normalization.
-4.  **Embedding Generation**: Generates a face embedding vector using the MobileFaceNet TFLite model.
-5.  **Verification**: Compares the generated embedding with a database of known face embeddings to identify the person.
+1. **Face Detection**: Utilizes MediaPipe's face detection model to locate faces with configurable confidence threshold
+2. **Face Extraction**: Extracts the detected face with configurable padding and resizing
+3. **Preprocessing**: Applies enhanced image preprocessing pipeline
+4. **Embedding Generation**: Generates a 512-dimensional face embedding vector using MobileFaceNet
+5. **Verification**: Compares embeddings using cosine similarity with configurable threshold
+
+#### Key Functions:
+
+- `detect_face()`: Face detection with MediaPipe
+- `extract_face()`: Face extraction with padding
+- `preprocess_face()`: Enhanced image preprocessing pipeline
+- `get_face_embedding()`: Face embedding generation
+- `verify_face()`: Face verification against database
+- `wait_for_face_and_verify()`: Interactive verification with timeout and retry
+- `build_embedding_from_folder()`: Build embeddings database from folder structure
+- `build_embedding_from_images()`: Build embeddings from image list
+- `capture_mismatch()`: Capture and encode mismatched faces
+
+#### Embeddings Storage and Database Management
+
+The system uses a flexible database structure for storing face embeddings:
+
+```python
+# Example embeddings database structure
+{
+    "person1_name": [
+        embedding1,  # numpy array of shape (512,)
+        embedding2,  # Multiple embeddings per person
+        ...
+    ],
+    "person2_name": [
+        embedding1,
+        ...
+    ]
+}
+```
+
+Key features:
+- **Multiple Embeddings**: Stores multiple embeddings per person for better recognition
+- **Persistent Storage**: Saves embeddings to disk using pickle serialization
+- **Database Management**:
+  - `save_face_embeddings()`: Merges new embeddings with existing database
+  - `load_face_embeddings()`: Loads embeddings from disk with error handling
+  - `build_embedding_from_folder()`: Builds database from folder structure
+  - `build_embedding_from_images()`: Builds database from image list
+
+Folder structure for training data:
+```
+faces/
+├── person1_name/
+│   ├── image1.jpg
+│   ├── image2.jpg
+│   └── ...
+├── person2_name/
+│   ├── image1.jpg
+│   └── ...
+```
 
 #### Usage:
 
@@ -168,3 +252,34 @@ The script allows you to select different embedding methods and face detectors t
 -   `FaceProfiler` class: Manages the face detection, extraction, preprocessing, and embedding generation processes.
 -   `profile_pipeline()` function: Executes the face processing pipeline and collects timing and system metrics.
 -   `print_profiling_results()` function: Prints a detailed report of the profiling results.
+
+### 4. Profiling Results:
+The following results were obtained when performing profiling on a Raspberry Pi 5.
+
+#### 4.1. Model Loading
+| Model              | Model Size (MB) | Memory Usage (MB) | CPU Usage (%) | Load Time (seconds) |
+| ------------------ | --------------- | ----------------- | ------------- | ------------------- |
+| MobileFaceNet (TFLite) | 5.0             | 17.5              | 98.9          | 0.01                |
+| VGG (TFLite)       | 128.2           | 283.5             | 100.9         | 0.38                |
+| MobileFaceNet (PB)   | 5.2             | 52.73             | 99.9          | 1.48                |
+| VGG (Keras)        | 512.2           | 585.83            | 91.7          | 5.4                 |
+
+#### 4.2. Pipeline
+| Framework | Model | Detection (seconds) | Extraction (seconds) | Preprocessing (seconds) | Embedding (seconds) | Total Pipeline Time (seconds) | Function Calls | Primitive Calls |
+|---|---|---|---|---|---|---|---|---|
+| MediaPipe | MobileFaceNet (TFLite) | 0.0207 | 0 | 0.0038 | 0.0246 | 0.049 | 8003 | 7768 |
+| MediaPipe | MobileFaceNet (PB) | 0.0213 | 0 | 0.0039 | 0.0357 | 0.0609 | 8604 | 8203 |
+| OpenCV | MobileFaceNet (TFLite) | 0.0465 | 0.0001 | 0.0037 | 0.0246 | 0.0749 | 377 | 372 |
+| OpenCV | MobileFaceNet (PB) | 0.0452 | 0.0001 | 0.0039 | 0.0353 | 0.0845 | 682 | 669 |
+| MediaPipe | VGG (TFLite) | 0.0211 | 0 | 0.0094 | 0.2534 | 0.2839 | 8004 | 7769 |
+| OpenCV | VGG (TFLite) | 0.0545 | 0.0001 | 0.0095 | 0.2516 | 0.3156 | 378 | 373 |
+| MediaPipe | VGG (Keras) | 0.0227 | 0 | 0.0101 | 0.7241 | 0.7569 | 473804 | 454125 |
+| OpenCV | VGG (Keras) | 0.0552 | 0.0001 | 0.0099 | 0.7708 | 0.836 | 71530 | 68144 |
+
+Based on the profiling results:
+
+*   **Model Loading:** VGG (Keras) has the largest model size and load time, while MobileFaceNet (TFLite) is the smallest and fastest to load.
+*   **Pipeline Performance:** MobileFaceNet (TFLite) with MediaPipe offers the fastest total pipeline time. VGG (Keras) is significantly slower, especially in the embedding generation step.
+*   **Framework Impact:** MediaPipe generally results in faster face detection compared to OpenCV.
+*   **Model Format Matters:** TFLite models are generally faster than their TensorFlow Frozen Graph (PB) or Keras counterparts.
+*   **Function Calls:** VGG (Keras) has a significantly higher number of function calls, indicating greater complexity or overhead.
