@@ -246,6 +246,9 @@ class VoiceAuth(LoggerMixin):
         :param user_name: The name of the user whose voiceprint is being authenticated.
         :type user_name: str
 
+        :param filename: The name of the audio file to authenticate, records audio if None.
+        :type filename: str | None
+
         :return: Returns True if the authentication is successful, otherwise False.
         :rtype: bool
         """
