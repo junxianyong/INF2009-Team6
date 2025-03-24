@@ -361,11 +361,13 @@ Within the airlock itself, we should only allow 1 person in at a single moment. 
 There are multiple ways of doing so: we can use opencv natively and code out a human detection. This is simple and extremely lightweight, but highly inefficient due to how insufficiently trained it is.
 
 ![photo_2025-03-25_02-24-36](https://github.com/user-attachments/assets/60ce28ef-7a29-418d-9d54-2f971941e4ff)
+
 *OpenCV incorrectly detecting humans*
 
 Another method of approaching this is to use Tensorflow Lite human detection system built on top of YOLOv5 tflite model. Utilizing both Tensorflow lite and YOLOv5 models, this human detection system is much more effective in accruately detecting people, especially when there is multiple people (i.e. detecting a city square). Although, a stronger hardware would be required.
 
 ![Screenshot 2025-03-25 022614](https://github.com/user-attachments/assets/581d26d3-ecfb-495b-86bd-ebff2fd88918)
+
 *YOLOv5 tflite detecting humans more efficiently in a crowded square*
 
 ## 7. 📌 State Diagram
