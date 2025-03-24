@@ -176,4 +176,3 @@ flake.lock
 !fog/web_client/app/lib
 src/auth/ck_sample0.wav
 src/auth/ck_sample1.wav
-src/auth/voiceprints.pkl
