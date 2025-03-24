@@ -40,7 +40,7 @@ face_verification_config = {
 }
 
 voice_auth_config = {
-    "voiceprints_file": "update/voiceprints.pkl",
+    "voiceprints_file": "biometrics/embeddings/voiceprints.pkl",
     "sr_rate": 44100,
     "num_mfcc": 20,
     "linear_threshold": 100,
@@ -96,7 +96,8 @@ def handle_enroll_biometrics(user_id):
 
     # Build face embeddings
     face_success = face_verification.build_embedding_from_images(face_paths, user.get("username"))
-    voice_success = voice_auth.enroll_user(user.get("username"), voice_path)
+    voice_success = voice_auth.enroll_user(user.get("username"), [voice_path]) # TODO: Change this if using different voice auth class
+
 
     # Enrollment failed
     if not (face_success and voice_success):
