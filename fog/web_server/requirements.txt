@@ -11,3 +11,5 @@ PyAudio~=0.2.14
 SpeechRecognition
 paho-mqtt~=2.1.0
 flask-cors
+noisereduce~=3.0.3
+sympy~=1.13.3
