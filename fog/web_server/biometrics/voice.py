@@ -11,7 +11,10 @@ import pyaudio
 import speech_recognition as sr
 from scipy.spatial.distance import cosine
 
-from utils.logger_mixin import LoggerMixin
+try:
+    from utils.logger_mixin import LoggerMixin
+except ModuleNotFoundError:
+    from logger_mixin import LoggerMixin
 
 
 class VoiceAuth(LoggerMixin):
@@ -68,6 +71,19 @@ class VoiceAuth(LoggerMixin):
         self._linear_threshold = voice_auth_config["linear_threshold"]
         self._cos_threshold = voice_auth_config["cos_threshold"]
         self._logger = self.setup_logger(__name__, logging_level)
+
+    def _denoise_audio(self, test_features, scale=0.9, noise_estimate=None):
+        """
+        Denoises an audio file using a precomputed noise estimate
+        """
+        if noise_estimate is None:
+            noise_estimate = np.array([
+                170.54712, -48.018562, 17.246204, -13.663334, 7.189887, -4.389717,
+                -1.721005, 5.3081093, -11.996632, 10.081416, -13.445624, 10.629371,
+                -11.295172, 13.201625, -12.11922, 12.774132, -11.278639, 8.4435,
+                -8.738363, 7.0353045
+            ])
+        return test_features - (noise_estimate * scale)
 
     def _extract_features(self, filename) -> np.ndarray:
         """
@@ -212,7 +228,7 @@ class VoiceAuth(LoggerMixin):
         self._logger.info(f"Enrollment complete for {user_name}.")
         return True
 
-    def authenticate_user(self, user_name):
+    def authenticate_user(self, user_name, filename=None):
         """
         Authenticates a user by comparing their voice input with saved voiceprint data.
 
@@ -225,12 +241,17 @@ class VoiceAuth(LoggerMixin):
         :param user_name: The name of the user whose voiceprint is being authenticated.
         :type user_name: str
 
+        :param filename: The name of the audio file to authenticate, records audio if None.
+        :type filename: str | None
+
         :return: Returns True if the authentication is successful, otherwise False.
         :rtype: bool
         """
-        test_filename = "test_sample.wav"
-        self._record_audio(test_filename)
+        test_filename = filename or "test_sample.wav"
+        if not filename:
+            self._record_audio(test_filename)
         test_features = self._extract_features(test_filename)
+        test_features = self._denoise_audio(test_features)
         test_hashed_words = self._hash_string(self._extract_words(test_filename))
 
         # Load voiceprints from central file
@@ -265,8 +286,10 @@ class VoiceAuth(LoggerMixin):
         self._logger.debug(
             f"Similarity: {avg_similarity}"
         )  # Changed from info to debug
+        # print(f"{avg_similarity=}")
+        # print(f"{avg_distance=}")
 
-        os.remove(test_filename)
+        # os.remove(test_filename)
 
         if (
                 avg_distance < self._linear_threshold
@@ -334,9 +357,9 @@ class VoiceAuth(LoggerMixin):
 
 
 if __name__ == "__main__":
-    USER1_TO_ENROLL = "User 1"
-    USER2_TO_ENROLL = "User 2"
-    USER_TO_AUTH = "User 1"
+    # USER1_TO_ENROLL = "User 1"
+    # USER2_TO_ENROLL = "User 2"
+    # USER_TO_AUTH = "limcheehean"
 
     voice_auth_config = {
         "voiceprints_file": "voiceprints.pkl",
@@ -349,12 +372,24 @@ if __name__ == "__main__":
     # Create an instance of VoiceAuth
     va = VoiceAuth(voice_auth_config)
 
-    print(f"Enrolling {USER1_TO_ENROLL} now")  # Changed from info to debug
-    va.enroll_user(USER1_TO_ENROLL, ["ck_sample0.wav", "ck_sample1.wav"])
+    MODE = "AUTH"  # ENROLL or AUTH
+    ENROLL_FILE = "enroll.wav"
+    AUTH_FILE = "auth.wav"
+    USER = "choonkeat"
 
-    print(f"Enrolling {USER2_TO_ENROLL} now")  # Changed from info to debug
-    va.enroll_user(USER2_TO_ENROLL, ["sample0.wav"])
+    if MODE == "ENROLL":
+        print(f"Enrolling {USER} with {ENROLL_FILE}...")
+        va.enroll_user(USER, [ENROLL_FILE])
+    else:
+        print(f"Authenticating {USER} with {AUTH_FILE}...")
+        va.authenticate_user(USER, AUTH_FILE)
 
-    time.sleep(2)
-    print(f"Authenticating {USER_TO_AUTH} now")  # Changed from info to debug
-    va.authenticate_user(USER_TO_AUTH)
+    # print(f"Enrolling {USER1_TO_ENROLL} now")  # Changed from info to debug
+    # va.enroll_user(USER1_TO_ENROLL, ["ck_sample0.wav", "ck_sample1.wav"])
+    #
+    # print(f"Enrolling {USER2_TO_ENROLL} now")  # Changed from info to debug
+    # va.enroll_user(USER2_TO_ENROLL, ["sample0.wav"])
+    #
+    # time.sleep(2)
+    # print(f"Authenticating {USER_TO_AUTH} now")  # Changed from info to debug
+    # va.authenticate_user(USER_TO_AUTH)
