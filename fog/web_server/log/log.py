@@ -149,7 +149,7 @@ def handle_alert(payload):
                 """
             },
             "diff": {
-                "subject": "🚨 GateGuard Security Alert - {timestamp}",
+                "subject": f"🚨 GateGuard Security Alert - {timestamp}",
                 "body": """
                 Dear Sir/Madam
                 
