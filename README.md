@@ -81,13 +81,17 @@ python export.py --weights yolov5n.pt --include  tflite
 # Documentation
 
 ## 1. Features
-These are the libraries and hardware modules used within this project.
+These are the libraries and hardware modules used within this project. (Not exhaustive)
 ### 1.1 💻Software
 - paho-mqtt
+- Flask, React (Next js)
+- noisereduce (noise reduction for sound)
+- resemblyzer (Deep-learning sound embedding)
 - Google Speech Recognition
 - Librosa
 - MediaPipe
 - Yolov5
+- Docker
 
 ### 1.2 🪫Hardware
 - Raspberry Pi 4/5
