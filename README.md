@@ -338,7 +338,35 @@ The `face_profiling.py` script is designed to profile the performance of differe
 
 ##### 3.4.9.3 Results
 
-todo
+The following results were obtained when performing profiling on a Raspberry Pi 5.
+
+**Model Loading**
+| Model              | Model Size (MB) | Memory Usage (MB) | CPU Usage (%) | Load Time (seconds) |
+| ------------------ | --------------- | ----------------- | ------------- | ------------------- |
+| MobileFaceNet (TFLite) | 5.0             | 17.5              | 98.9          | 0.01                |
+| VGG (TFLite)       | 128.2           | 283.5             | 100.9         | 0.38                |
+| MobileFaceNet (PB)   | 5.2             | 52.73             | 99.9          | 1.48                |
+| VGG (Keras)        | 512.2           | 585.83            | 91.7          | 5.4                 |
+
+**Pipeline**
+| Framework | Model | Detection (seconds) | Extraction (seconds) | Preprocessing (seconds) | Embedding (seconds) | Total Pipeline Time (seconds) | Function Calls | Primitive Calls |
+|---|---|---|---|---|---|---|---|---|
+| MediaPipe | MobileFaceNet (TFLite) | 0.0207 | 0 | 0.0038 | 0.0246 | 0.049 | 8003 | 7768 |
+| MediaPipe | MobileFaceNet (PB) | 0.0213 | 0 | 0.0039 | 0.0357 | 0.0609 | 8604 | 8203 |
+| OpenCV | MobileFaceNet (TFLite) | 0.0465 | 0.0001 | 0.0037 | 0.0246 | 0.0749 | 377 | 372 |
+| OpenCV | MobileFaceNet (PB) | 0.0452 | 0.0001 | 0.0039 | 0.0353 | 0.0845 | 682 | 669 |
+| MediaPipe | VGG (TFLite) | 0.0211 | 0 | 0.0094 | 0.2534 | 0.2839 | 8004 | 7769 |
+| OpenCV | VGG (TFLite) | 0.0545 | 0.0001 | 0.0095 | 0.2516 | 0.3156 | 378 | 373 |
+| MediaPipe | VGG (Keras) | 0.0227 | 0 | 0.0101 | 0.7241 | 0.7569 | 473804 | 454125 |
+| OpenCV | VGG (Keras) | 0.0552 | 0.0001 | 0.0099 | 0.7708 | 0.836 | 71530 | 68144 |
+
+Based on the profiling results:
+
+*   **Model Loading:** VGG (Keras) has the largest model size and load time, while MobileFaceNet (TFLite) is the smallest and fastest to load.
+*   **Pipeline Performance:** MobileFaceNet (TFLite) with MediaPipe offers the fastest total pipeline time. VGG (Keras) is significantly slower, especially in the embedding generation step.
+*   **Framework Impact:** MediaPipe generally results in faster face detection compared to OpenCV.
+*   **Model Format Matters:** TFLite models are generally faster than their TensorFlow Frozen Graph (PB) or Keras counterparts.
+*   **Function Calls:** VGG (Keras) has a significantly higher number of function calls, indicating greater complexity or overhead.
 
 ## 4. 🚶‍♂️‍➡️ Motion Detection
 
