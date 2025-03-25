@@ -316,6 +316,29 @@ faces/
 -   `verify_face()`: Verifies a face against the embeddings database.
 -   `wait_for_face_and_verify()`: Waits for a face to appear and then verifies it against the database.
 
+#### 3.4.9 Profiling
+The `face_profiling.py` script is designed to profile the performance of different face detection and embedding methods. It measures the time taken for each step in the face processing pipeline and collects system metrics such as CPU usage, memory usage, and I/O operations.
+
+##### 3.4.9.1 Workflow
+
+1.  **Initialization**: Initializes the FaceProfiler with specified models and configurations.
+2.  **Image Loading**: Loads an image for processing.
+3.  **Face Detection**: Detects faces in the image using either MediaPipe or OpenCV.
+4.  **Face Extraction**: Extracts the detected face from the image.
+5.  **Preprocessing**: Preprocesses the extracted face to match the input requirements of the chosen embedding model.
+6.  **Embedding Generation**: Generates a face embedding vector using the specified model (MobileFaceNet, VGG16, etc.).
+7.  **Metrics Collection**: Collects timing information for each step and system metrics such as CPU usage, memory usage, and I/O operations.
+8.  **Reporting**: Prints a detailed report of the profiling results, including timing information and system metrics.
+
+##### 3.4.9.2 Key Components
+
+-   `FaceProfiler` class: Manages the face detection, extraction, preprocessing, and embedding generation processes.
+-   `profile_pipeline()` function: Executes the face processing pipeline and collects timing and system metrics.
+-   `print_profiling_results()` function: Prints a detailed report of the profiling results.
+
+##### 3.4.9.3 Results
+
+todo
 
 ## 4. 🚶‍♂️‍➡️ Motion Detection
 
@@ -338,28 +361,7 @@ The `motion_detection.py` script implements motion detection using OpenCV.
 -   `blur_size`: Size of the Gaussian blur kernel.
 -   `check_interval`: Time interval between motion checks.
 
-## 5. 🚹 Profiling
-
-The `face_profiling.py` script is designed to profile the performance of different face detection and embedding methods. It measures the time taken for each step in the face processing pipeline and collects system metrics such as CPU usage, memory usage, and I/O operations.
-
-### 5.1 Workflow:
-
-1.  **Initialization**: Initializes the FaceProfiler with specified models and configurations.
-2.  **Image Loading**: Loads an image for processing.
-3.  **Face Detection**: Detects faces in the image using either MediaPipe or OpenCV.
-4.  **Face Extraction**: Extracts the detected face from the image.
-5.  **Preprocessing**: Preprocesses the extracted face to match the input requirements of the chosen embedding model.
-6.  **Embedding Generation**: Generates a face embedding vector using the specified model (MobileFaceNet, VGG16, etc.).
-7.  **Metrics Collection**: Collects timing information for each step and system metrics such as CPU usage, memory usage, and I/O operations.
-8.  **Reporting**: Prints a detailed report of the profiling results, including timing information and system metrics.
-
-### 5.2 Key Components:
-
--   `FaceProfiler` class: Manages the face detection, extraction, preprocessing, and embedding generation processes.
--   `profile_pipeline()` function: Executes the face processing pipeline and collects timing and system metrics.
--   `print_profiling_results()` function: Prints a detailed report of the profiling results.
-
-## 6. 🧑‍🤝‍🧑 Human detection
+## 5. 🧑‍🤝‍🧑 Human detection
 Within the airlock itself, we should only allow 1 person in at a single moment. Hence, we have to detect if multiple people are within it. 
 
 There are multiple ways of doing so: we can use opencv natively and code out a human detection. This is simple and extremely lightweight, but highly inefficient due to how insufficiently trained it is.
@@ -374,7 +376,7 @@ Another method of approaching this is to use Tensorflow Lite human detection sys
 
 *YOLOv5 tflite detecting humans more efficiently in a crowded square*
 
-## 7. 📌 State Diagram
+## 6. 📌 State Diagram
 The state table and state diagram are shown below. The state diagram is a visual representation of the state table. The state table shows the states of the system, the conditions that trigger the transitions between states, and the actions to take when transitioning between states. The state diagram shows the states of the system as nodes and the transitions between states as edges. The state diagram is a useful tool for understanding the behavior of the system and for designing the system.
 
 ```mermaid
