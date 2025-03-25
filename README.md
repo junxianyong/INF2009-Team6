@@ -92,7 +92,7 @@ These are the libraries and hardware modules used within this project.
 ### 1.2 🪫Hardware
 - Raspberry Pi 4/5
 - Webcam w/ inbuilt microphone
-- Led
+- I2C LCD
 - Buzzer
 - Ultrasonic sensor
 - Servo
