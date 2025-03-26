@@ -404,7 +404,102 @@ Another method of approaching this is to use Tensorflow Lite human detection sys
 
 *YOLOv5 tflite detecting humans more efficiently in a crowded square*
 
-## 6. 📌 State Diagram
+
+## 6. 🔊 Voice Authentication
+As voice authentication was a vital part of the authentication process, including both the voice password and the voice signature analysis, the system was broken down into two parts accordingly.
+
+### 6.1 1️⃣ Starting Premise
+The edge devices would be connected through LAN cables to the internet, providing secured access through the premise's internet and firewall. 
+
+The voice authentication process occurs **after** confirming the identity of the personnel, meaning there is no need to determine their identity beforehand.
+
+Voice enrollment is performed on the fog device, while authentication is carried out on the edge. Thus, updates to personnel’s unique voice passwords are transferred from the fog device to the edge device.
+
+Ensuring the **security** of voice authentication during these updates is **critical**.
+
+### 6.2 ⚙️ Approach to Premise
+A **simple solution** was chosen to match voice signatures and passwords **without** relying on deep learning models (which can be heavyweight and have costlier inference). 
+
+The approach involves matching voice signatures by calculating the **linear normalized distance** of the MFCC features between the enrolled and authentication voice samples. This allows developers to **customize a threshold value** based on testing to separate voice signatures.
+
+A **speech recognition library** was used to capture the voice passwords. Both speed ⚡ and accuracy 🎯 were crucial, leading to testing (below) to identify the most suitable library.
+
+After recognition, **voice passwords are hashed and serialized** for secure transmission to the edge device.
+
+### 6.3 🧪 Testing
+🛠️ Five speech recognition models were tested:
+- Sphinx
+- Google Speech Recognition
+- Wit.ai
+- Houdify
+- Whisper
+
+**Google Speech Recognition** provided the **best accuracy** and **speed** for word inference.
+
+Since authentication involves waiting, minimizing **wait times** was a priority.
+![image](https://github.com/user-attachments/assets/e269a903-95e3-4ff1-92c3-15adabe6ca51)
+
+### 6.4 🚨 Problems Encountered
+🛠️ Due to differences in **hardware** on edge and fog devices, the team suspected a **significant amount of noise** was picked up by the edge device. 
+
+**Fog devices (often laptops) apply noise reduction automatically**, leading to cleaner recordings. Additionally, the differences in hardware (I.E. the microphone) might affect the output. 
+
+Edge devices, however, recorded **noisier audio**, causing **failed authentication attempts**.
+
+### 6.5 🛠️ Solutions Employed
+The team **split development** into two alternate paths:
+
+1️⃣ **Lightweight approach** (MFCC features comparison)
+   - **Noise reduction** using the `noisereduce` library when recording on the edge device.
+   - A **first authentication pass** using the noise-reduced WAV file to extract MFCC features.
+   - If this **fails**, a **second authentication pass** applies **noise-reduction on MFCC features** instead.
+
+2️⃣ **Noise-reduction profile development**
+   - **Recorded samples** from fog and edge devices were analyzed.
+   - **Signal-to-noise ratio** was calculated for each feature.
+   - Features were adjusted by a **scale factor** to improve authentication accuracy.
+
+📊 **Example testing results**:
+![image](https://github.com/user-attachments/assets/9214537e-35ec-4c56-b9db-9228a104f752)
+
+📌 **Observations**:
+- ✅ **Same individual authentication**: After denoising, embedding distance **reduced by 57 points** (125.39 → 67.61).
+- ❌ **Different individual authentication**: Embedding distance **only reduced by 10 points** (104.06 → 93.69).
+
+This **simpler algorithm** selectively **reduces embeddings using noise estimates**, enabling **more reliable authentication** across **Fog and Edge devices** without deep learning.
+
+### 6.6 🧠 Alternative Deep Learning Approach
+**Deep-learning-based method**:
+- Utilized `resemble-ai/Resemblyzer` ([GitHub](https://github.com/resemble-ai/Resemblyzer))
+- Generates a **256-value summary vector** per audio file.
+
+**Comparison**:
+| Approach | Features Used | Speed | Storage  | Noise Handling  |
+|----------|--------------|---------|----------|----------------|
+| **Lightweight (MFCC)** | 20 values | ✅ Fast | ✅ Low | ⚠️ Moderate |
+| **Deep Learning (Resemblyzer)** | 256 values | ❌ Slower | ❌ High | ✅ Strong |
+
+🔍 The **deep-learning approach** accounts **better** for:
+- **Different recording hardware**
+- **Environmental noise**
+  
+However, it has **higher inference time** and **storage costs**.
+
+---
+### 6.7 ✅ **Final Decision:**  
+For **lightweight** and **efficient** authentication across devices, **the MFCC-based approach was prioritized**. Deep learning remains an **alternative** for future enhancements.
+
+🚀 **Next Steps:**
+- Optimize **threshold calibration** for different noise profiles.
+- Improve **real-time denoising** on edge devices.
+- Evaluate **hybrid approaches** for further robustness.
+
+---
+
+### 6.8 🎉 **Conclusion:**  
+Through **adaptive noise reduction** and **threshold tuning**, a **lightweight, scalable** voice authentication system was implemented—ensuring **fast, reliable** authentication without **heavy AI dependency**.
+
+## 7. 📌 State Diagram
 The state table and state diagram are shown below. The state diagram is a visual representation of the state table. The state table shows the states of the system, the conditions that trigger the transitions between states, and the actions to take when transitioning between states. The state diagram shows the states of the system as nodes and the transitions between states as edges. The state diagram is a useful tool for understanding the behavior of the system and for designing the system.
 
 ```mermaid
@@ -443,96 +538,4 @@ stateDiagram
 | 11 | Close | Idle | Open | Voice verified | 10 | 1 | Wait for personnel to exit the mantrap |
 
 
-# 🚀 Developer's Diary
-## 🔊 Voice Authentication
-As voice authentication was a vital part of the authentication process, including both the voice password and the voice signature analysis, the system was broken down into two parts accordingly.
 
-### 1️⃣ Starting Premise
-The edge devices would be connected through LAN cables to the internet, providing secured access through the premise's internet and firewall. 
-
-The voice authentication process occurs **after** confirming the identity of the personnel, meaning there is no need to determine their identity beforehand.
-
-Voice enrollment is performed on the fog device, while authentication is carried out on the edge. Thus, updates to personnel’s unique voice passwords are transferred from the fog device to the edge device.
-
-Ensuring the **security** of voice authentication during these updates is **critical**.
-
-### ⚙️ Approach to Premise
-A **simple solution** was chosen to match voice signatures and passwords **without** relying on deep learning models (which can be heavyweight and have costlier inference). 
-
-The approach involves matching voice signatures by calculating the **linear normalized distance** of the MFCC features between the enrolled and authentication voice samples. This allows developers to **customize a threshold value** based on testing to separate voice signatures.
-
-A **speech recognition library** was used to capture the voice passwords. Both speed ⚡ and accuracy 🎯 were crucial, leading to testing (below) to identify the most suitable library.
-
-After recognition, **voice passwords are hashed and serialized** for secure transmission to the edge device.
-
-### 🧪 Testing
-🛠️ Five speech recognition models were tested:
-- Sphinx
-- Google Speech Recognition
-- Wit.ai
-- Houdify
-- Whisper
-
-**Google Speech Recognition** provided the **best accuracy** and **speed** for word inference.
-
-Since authentication involves waiting, minimizing **wait times** was a priority.
-![image](https://github.com/user-attachments/assets/e269a903-95e3-4ff1-92c3-15adabe6ca51)
-
-### 🚨 Problems Encountered
-🛠️ Due to differences in **hardware** on edge and fog devices, the team suspected a **significant amount of noise** was picked up by the edge device. 
-
-**Fog devices (often laptops) apply noise reduction automatically**, leading to cleaner recordings. Additionally, the differences in hardware (I.E. the microphone) might affect the output. 
-
-Edge devices, however, recorded **noisier audio**, causing **failed authentication attempts**.
-
-### 🛠️ Solutions Employed
-The team **split development** into two alternate paths:
-
-1️⃣ **Lightweight approach** (MFCC features comparison)
-   - **Noise reduction** using the `noisereduce` library when recording on the edge device.
-   - A **first authentication pass** using the noise-reduced WAV file to extract MFCC features.
-   - If this **fails**, a **second authentication pass** applies **noise-reduction on MFCC features** instead.
-
-2️⃣ **Noise-reduction profile development**
-   - **Recorded samples** from fog and edge devices were analyzed.
-   - **Signal-to-noise ratio** was calculated for each feature.
-   - Features were adjusted by a **scale factor** to improve authentication accuracy.
-
-📊 **Example testing results**:
-![image](https://github.com/user-attachments/assets/9214537e-35ec-4c56-b9db-9228a104f752)
-
-📌 **Observations**:
-- ✅ **Same individual authentication**: After denoising, embedding distance **reduced by 57 points** (125.39 → 67.61).
-- ❌ **Different individual authentication**: Embedding distance **only reduced by 10 points** (104.06 → 93.69).
-
-This **simpler algorithm** selectively **reduces embeddings using noise estimates**, enabling **more reliable authentication** across **Fog and Edge devices** without deep learning.
-
-### 🧠 Alternative Deep Learning Approach
-**Deep-learning-based method**:
-- Utilized `resemble-ai/Resemblyzer` ([GitHub](https://github.com/resemble-ai/Resemblyzer))
-- Generates a **256-value summary vector** per audio file.
-
-**Comparison**:
-| Approach | Features Used | Speed | Storage  | Noise Handling  |
-|----------|--------------|---------|----------|----------------|
-| **Lightweight (MFCC)** | 20 values | ✅ Fast | ✅ Low | ⚠️ Moderate |
-| **Deep Learning (Resemblyzer)** | 256 values | ❌ Slower | ❌ High | ✅ Strong |
-
-🔍 The **deep-learning approach** accounts **better** for:
-- **Different recording hardware**
-- **Environmental noise**
-  
-However, it has **higher inference time** and **storage costs**.
-
----
-✅ **Final Decision:**  
-For **lightweight** and **efficient** authentication across devices, **the MFCC-based approach was prioritized**. Deep learning remains an **alternative** for future enhancements.
-
-🚀 **Next Steps:**
-- Optimize **threshold calibration** for different noise profiles.
-- Improve **real-time denoising** on edge devices.
-- Evaluate **hybrid approaches** for further robustness.
-
----
-🎉 **Conclusion:**  
-Through **adaptive noise reduction** and **threshold tuning**, a **lightweight, scalable** voice authentication system was implemented—ensuring **fast, reliable** authentication without **heavy AI dependency**.
