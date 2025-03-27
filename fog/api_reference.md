@@ -10,7 +10,7 @@ These endpoints are mostly utilised by the frontend (web_client) for administrat
 
 Login to the security portal.
 
-Access: `All`
+Access: `Admin, Security`
 
 **Parameters**
 
@@ -46,7 +46,7 @@ Content-Type: application/json
 
 Logout from the security portal.
 
-Access: `All`
+Access: `Admin, Security`
 
 **Example Request**
 ```
