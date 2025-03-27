@@ -438,6 +438,8 @@ After recognition, **voice passwords are hashed and serialized** for secure tran
 
 Since authentication involves waiting, minimizing **wait times** was a priority.
 ![image](https://github.com/user-attachments/assets/e269a903-95e3-4ff1-92c3-15adabe6ca51)
+![image](https://github.com/user-attachments/assets/6956f071-2bee-4851-bc30-015ae7e7cbdd)
+
 
 ### 6.4 🚨 Problems Encountered
 🛠️ Due to differences in **hardware** on edge and fog devices, the team suspected a **significant amount of noise** was picked up by the edge device. 
