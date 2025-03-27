@@ -1,5 +1,9 @@
 # API Reference
 
+This API reference documents all the REST endpoints present in the backend (web_server) for authentication, user management, mantrap management, biometrics enrollment and well as access control monitoring.
+
+These endpoints are mostly utilised by the frontend (web_client) for administrators and security personnel to manage the platform via the browser.
+
 ## Authentication
 
 ### [POST] /api/auth/login
