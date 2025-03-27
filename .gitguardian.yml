@@ -1,2 +1,3 @@
 paths-ignore:
   - "fog/web_server/api_test/*"
+  - "fog/nginx/*"

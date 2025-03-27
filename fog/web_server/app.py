@@ -14,11 +14,11 @@ from utils.mqtt import connect_mqtt
 
 app = Flask(__name__)
 app.secret_key = getenv("SECRET_KEY")
-socketio = SocketIO(app, cors_allowed_origins=["http://localhost:3000"])
+socketio = SocketIO(app, cors_allowed_origins="*")
 connect_mqtt(socketio)
 
 # Allow cors
-CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+CORS(app, origins="*", supports_credentials=True)
 
 
 @app.before_request
