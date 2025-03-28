@@ -508,25 +508,26 @@ memory usage, and I/O operations.
 The following results were obtained when performing profiling on a Raspberry Pi 5.
 
 **Model Loading**
-| Model | Model Size (MB) | Memory Usage (MB) | CPU Usage (%) | Load Time (seconds) |
-| ------------------ | --------------- | ----------------- | ------------- | ------------------- |
-| MobileFaceNet (TFLite) | 5.0 | 17.5 | 98.9 | 0.01 |
-| VGG (TFLite)       | 128.2 | 283.5 | 100.9 | 0.38 |
-| MobileFaceNet (PB)   | 5.2 | 52.73 | 99.9 | 1.48 |
-| VGG (Keras)        | 512.2 | 585.83 | 91.7 | 5.4 |
+
+| Model                  | Model Size (MB) | Memory Usage (MB) | CPU Usage (%) | Load Time (seconds) |
+|------------------------|-----------------|-------------------|---------------|---------------------|
+| MobileFaceNet (TFLite) | 5.0             | 17.5              | 98.9          | 0.01                |
+| VGG (TFLite)           | 128.2           | 283.5             | 100.9         | 0.38                |
+| MobileFaceNet (PB)     | 5.2             | 52.73             | 99.9          | 1.48                |
+| VGG (Keras)            | 512.2           | 585.83            | 91.7          | 5.4                 |
 
 **Pipeline**
-| Framework | Model | Detection (seconds) | Extraction (seconds) | Preprocessing (seconds) | Embedding (seconds) | Total
-Pipeline Time (seconds) | Function Calls | Primitive Calls |
-|---|---|---|---|---|---|---|---|---|
-| MediaPipe | MobileFaceNet (TFLite) | 0.0207 | 0 | 0.0038 | 0.0246 | 0.049 | 8003 | 7768 |
-| MediaPipe | MobileFaceNet (PB) | 0.0213 | 0 | 0.0039 | 0.0357 | 0.0609 | 8604 | 8203 |
-| OpenCV | MobileFaceNet (TFLite) | 0.0465 | 0.0001 | 0.0037 | 0.0246 | 0.0749 | 377 | 372 |
-| OpenCV | MobileFaceNet (PB) | 0.0452 | 0.0001 | 0.0039 | 0.0353 | 0.0845 | 682 | 669 |
-| MediaPipe | VGG (TFLite) | 0.0211 | 0 | 0.0094 | 0.2534 | 0.2839 | 8004 | 7769 |
-| OpenCV | VGG (TFLite) | 0.0545 | 0.0001 | 0.0095 | 0.2516 | 0.3156 | 378 | 373 |
-| MediaPipe | VGG (Keras) | 0.0227 | 0 | 0.0101 | 0.7241 | 0.7569 | 473804 | 454125 |
-| OpenCV | VGG (Keras) | 0.0552 | 0.0001 | 0.0099 | 0.7708 | 0.836 | 71530 | 68144 |
+
+| Framework | Model                  | Detection (seconds) | Extraction (seconds) | Preprocessing (seconds) | Embedding (seconds) | TotalPipeline Time (seconds) | Function Calls | Primitive Calls |
+|-----------|------------------------|---------------------|----------------------|-------------------------|---------------------|------------------------------|----------------|-----------------|
+| MediaPipe | MobileFaceNet (TFLite) | 0.0207              | 0                    | 0.0038                  | 0.0246              | 0.049                        | 8003           | 7768            |
+| MediaPipe | MobileFaceNet (PB)     | 0.0213              | 0                    | 0.0039                  | 0.0357              | 0.0609                       | 8604           | 8203            |
+| OpenCV    | MobileFaceNet (TFLite) | 0.0465              | 0.0001               | 0.0037                  | 0.0246              | 0.0749                       | 377            | 372             |
+| OpenCV    | MobileFaceNet (PB)     | 0.0452              | 0.0001               | 0.0039                  | 0.0353              | 0.0845                       | 682            | 669             |
+| MediaPipe | VGG (TFLite)           | 0.0211              | 0                    | 0.0094                  | 0.2534              | 0.2839                       | 8004           | 7769            |
+| OpenCV    | VGG (TFLite)           | 0.0545              | 0.0001               | 0.0095                  | 0.2516              | 0.3156                       | 378            | 373             |
+| MediaPipe | VGG (Keras)            | 0.0227              | 0                    | 0.0101                  | 0.7241              | 0.7569                       | 473804         | 454125          |
+| OpenCV    | VGG (Keras)            | 0.0552              | 0.0001               | 0.0099                  | 0.7708              | 0.836                        | 71530          | 68144           |
 
 Based on the profiling results:
 
@@ -677,10 +678,11 @@ authentication** across **Fog and Edge devices** without deep learning.
 - Generates a **256-value summary vector** per audio file.
 
 **Comparison**:
-| Approach | Features Used | Speed | Storage | Noise Handling |
-|----------|--------------|---------|----------|----------------|
-| **Lightweight (MFCC)** | 20 values | ✅ Fast | ✅ Low | ⚠️ Moderate |
-| **Deep Learning (Resemblyzer)** | 256 values | ❌ Slower | ❌ High | ✅ Strong |
+
+| Approach                        | Features Used | Speed    | Storage | Noise Handling |
+|---------------------------------|---------------|----------|---------|----------------|
+| **Lightweight (MFCC)**          | 20 values     | ✅ Fast   | ✅ Low   | ⚠️ Moderate    |
+| **Deep Learning (Resemblyzer)** | 256 values    | ❌ Slower | ❌ High  | ✅ Strong       |
 
 🔍 The **deep-learning approach** accounts **better** for:
 
