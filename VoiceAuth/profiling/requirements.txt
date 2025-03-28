@@ -1,4 +1,0 @@
-psutil
-SpeechRecognition
-SpeechRecognition[whisper-local]
-SpeechRecognition[pocketsphinx]
