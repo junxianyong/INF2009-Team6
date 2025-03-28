@@ -10,5 +10,6 @@ librosa~=0.11.0rc1
 PyAudio~=0.2.14
 SpeechRecognition
 paho-mqtt~=2.1.0
-flask-cors
+flask-cors~=5.0.1
 noisereduce~=3.0.3
+flask-socketio~=5.5.1
