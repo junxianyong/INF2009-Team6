@@ -27,6 +27,7 @@ the system.
 ### Fog Device (PC)
 
 1. Ensure that the following software is installed.
+   - [Docker](https://www.docker.com/)
    - [Python 3.12.5 or later](https://www.python.org/downloads/release/python-3125/)
    - [Node v20.14.0 or later](https://nodejs.org/en)
    - [PostgreSQL 17.2 or later](https://www.postgresql.org/download/)
