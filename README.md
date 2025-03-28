@@ -1,44 +1,155 @@
-
 # **INF2009-Team6**: Dual-Gate Access Authentication with 2-Factor Authentication (Voice + Camera)
 
 ## Project Description
-This project is a dual-gate access authentication system that uses 2-factor authentication. The system is composed of two gates. The first camera on first gate is the face recognition gate, which uses the camera to capture the face of the person trying to enter. The second camera on first gate will prevent tailgating. The second gate is the face and voice recognition gate, which uses the camera to capture the face of the person trying to enter and the microphone to capture the voice of the person trying to enter. The system will only allow access if the person is recognized by both gates. The system will also have a web interface that will allow the user to add new users, delete users, and view the logs of the system.
+
+This project is a dual-gate access authentication system that uses 2-factor authentication. The system is composed of
+two gates. The first camera on first gate is the face recognition gate, which uses the camera to capture the face of the
+person trying to enter. The second camera on first gate will prevent tailgating. The second gate is the face and voice
+recognition gate, which uses the camera to capture the face of the person trying to enter and the microphone to capture
+the voice of the person trying to enter. The system will only allow access if the person is recognized by both gates.
+The system will also have a web interface that will allow the user to add new users, delete users, and view the logs of
+the system.
 
 ![Frame 1 (3)](https://github.com/user-attachments/assets/4ae08189-72d1-4743-97dc-dbc8322823b2)
 
-
 ## 🔗 Links
+
 ![Static Badge](https://img.shields.io/badge/Poster_Link-Canva-blue?style=for-the-badge&logo=canva&link=https%3A%2F%2Fwww.canva.com%2Fdesign%2FDAGcoSWfQ7E%2F206BhRh_AZRSofwBzGcc8g%2Fview%3Futm_content%3DDAGcoSWfQ7E%26utm_campaign%3Ddesignshare%26utm_medium%3Dlink2%26utm_source%3Duniquelinks%26utlId%3Dhceeff75b2a)
 
 ![Static Badge](https://img.shields.io/badge/Demo_Video_Link-Youtube-red?style=for-the-badge&logo=youtube&link=https%3A%2F%2Fwww.canva.com%2Fdesign%2FDAGcoSWfQ7E%2F206BhRh_AZRSofwBzGcc8g%2Fview%3Futm_content%3DDAGcoSWfQ7E%26utm_campaign%3Ddesignshare%26utm_medium%3Dlink2%26utm_source%3Duniquelinks%26utlId%3Dhceeff75b2a)
 
-# Setup
+## Setup Instructions
 
 ### Fog Device (PC)
-1. Install Docker on the fog device.
-2. Run the following command to start the MQTT broker container.
-    ```bash
-    docker run -d --name mqtt-broker \
-    -p 1883:1883 \
-    -e MOSQUITTO_USERNAME=mosquitto \
-    -e MOSQUITTO_PASSWORD=mosquitto \
-    ekiost/mqtt-broker:latest\
 
+1. Install Docker on the fog device
 
-### Edge Device (Raspberry PI)
+2. Run the MQTT broker container:
+   ```bash
+   docker run -d --name mqtt-broker \
+   -p 1883:1883 \
+   -e MOSQUITTO_USERNAME=your_mqtt_username \
+   -e MOSQUITTO_PASSWORD=your_mqtt_password \
+   ekiost/mqtt-broker:latest
+   ```
 
-1. Install all required libraries from the `requirements.txt` by running this command:
+3. Create environment configuration files:
+
+   #### For web_server (.env.local)
+   Create this file in the web_server directory with the following structure:
+   ```
+   SECRET_KEY=your_secret_key
+   SESSION_TIMEOUT=1200
+   
+   # SMTP Configuration
+   SMTP_SERVER=your_smtp_server
+   SMTP_PORT=587
+   SMTP_LOGIN=your_email@example.com
+   SMTP_PASSWORD=your_smtp_password
+   
+   # Database Configuration
+   DB_NAME=gateguard
+   DB_USER=your_db_username
+   DB_PASSWORD=your_db_password
+   DB_HOST=localhost
+   DB_PORT=5432
+   
+   # MQTT Configuration
+   MQTT_BROKER=localhost
+   MQTT_PORT=1883
+   MQTT_CLIENT_ID=fog
+   MQTT_USERNAME=your_mqtt_username
+   MQTT_PASSWORD=your_mqtt_password
+   
+   # API Token
+   EMBEDDINGS_TOKEN=your_embeddings_token
+   
+   TF_ENABLE_ONEDNN_OPTS=0
+   ```
+
+   #### For web_client (.env.local)
+   Create this file in the web_client directory:
+   ```
+   NEXT_PUBLIC_API_URL=http://localhost:5000/api
+   ```
+
+4. Install backend dependencies:
+   ```bash
+   cd web_server
+   pip install -r requirements.txt
+   ```
+
+5. Start the web server:
+   ```bash
+   python app.py
+   ```
+
+6. Install frontend dependencies:
+   ```bash
+   cd web_client
+   npm install
+   ```
+
+7. Start the web client:
+   ```bash
+   npm run dev
+   ```
+
+### Edge Device (Raspberry Pi)
+
+1. Install required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Run the gate applications:
+    - For the first gate: `python gate1.py`
+    - For the second gate: `python gate2.py`
+
+## Configuration Options
+
+The system can be customized through the following configuration dictionaries:
+
+### MQTT Configuration
+
+```python
+mqtt_config = {
+    "broker": "localhost",  # Change to your MQTT broker address
+    "port": 1883,
+    "username": "your_mqtt_username",
+    "password": "your_mqtt_password",
+}
 ```
-pip install -r requirements.txt
+
+### API Configuration
+
+```python
+update_config = {
+    "url": "localhost:5000/api/biometrics/embeddings/<EMBEDDINGS_TOKEN>/",
+    "save_path": "update",
+}
 ```
 
-2. Facial verification has multiple models you may choose to run. Additional models for download can be found [here](https://drive.google.com/drive/folders/1eMMwx83z2gOaQSYb-AWKj05oLTAsBKvx?usp=drive_link)
+### Motion Detection Configuration
 
-- The System can be further configured through a dictionary containing various parameters should you choose to:
+```python
+motion_detector_config = {
+    "camera_id": 0,  # Change to your camera index
+    "resolution": (320, 240),
+    "threshold": 25,
+    "min_area": 500,
+    "blur_size": 5,
+    "check_interval": 0.5,  # Check every 0.5s
+    "fps": 10,  # 10fps for responsive but lower CPU usage
+}
+```
+
+### Face Verification Configuration
+
 ```python
 face_verification_config = {
-    "model_path": "mobilefacenet.tflite",
-    "database_path": "face_embeddings.pkl",
+    "model_path": "model/mobilefacenet.tflite",
+    "database_path": "update/face_embeddings.pkl",
     # Face detection & preprocessing settings:
     "model_selection": 0,
     "min_detection_confidence": 0.7,
@@ -50,39 +161,79 @@ face_verification_config = {
     "verification_timeout": 30,
     "verification_max_attempts": 3,
     # Camera settings:
-    "camera_id": 0,
+    "camera_id": 0,  # Change to your camera index
 }
 ```
-3. Human detection has multiple models to be chosen too. Navigate to yolov5 folder
 
-```
--- File Structure --
-INF2009-Team6/
-├── humanDetection/
-│   ├── tflite-human-tracking/
-│   │   ├── models/
-│   │   │   └── yolov5 <--
-│   │   └── ...
-│   └── ...
-└── ...
+### Intruder Detection Configuration
+
+```python
+intruder_detection_config = {
+    "camera_index": 0,  # Change to your camera index
+    "model": "model/yolov5n-fp16.tflite",
+    "confidence": 0.2,
+    "iou_threshold": 0.2,
+    "directions": {"total": None, "inside": "bottom", "outside": "top"},
+    "duration": 30,
+    "sensitivity": 0.05
+}
 ```
 
-To get yolov5 tflite models, you can use yolov5/export.py by running these commands:
+### Hardware Driver Configuration
+
+```python
+driver_config = {
+    "buzzer": {
+        "pin": 17
+    },
+    "lcd": {
+        "address": 0x27,
+        "port": 1,
+        "cols": 16,
+        "rows": 2,
+        "dotsize": 8,
+    },
+    "servo": {
+        "pin": 4,
+        "open_angle": 180,
+        "close_angle": 0,
+    },
+    "ultrasonic": {
+        "echo": 23,
+        "trigger": 18,
+        "max_distance": 4,
+        "window_size": 10,
+        "calibration_step": 30,
+    }
+}
 ```
+
+## Models
+
+### Face Recognition Models
+
+Multiple face recognition models are supported. Additional pre-trained models can be downloaded
+from [this link](https://drive.google.com/drive/folders/1eMMwx83z2gOaQSYb-AWKj05oLTAsBKvx?usp=drive_link).
+
+### YOLOv5 Models for Human Detection
+
+To obtain YOLOv5 TFLite models for human detection:
+
+```bash
 git clone git@github.com:ultralytics/yolov5.git
-
 cd yolov5
-
 pip install -r requirements.txt
-
-python export.py --weights yolov5n.pt --include  tflite
+python export.py --weights yolov5n.pt --include tflite
 ```
 
 # Documentation
 
 ## 1. Features
+
 These are the libraries and hardware modules used within this project. (Not exhaustive)
+
 ### 1.1 💻Software
+
 - paho-mqtt
 - Flask, React (Next js)
 - noisereduce (noise reduction for sound)
@@ -94,6 +245,7 @@ These are the libraries and hardware modules used within this project. (Not exha
 - Docker
 
 ### 1.2 🪫Hardware
+
 - Raspberry Pi 4/5
 - Webcam w/ inbuilt microphone
 - I2C LCD
@@ -102,11 +254,14 @@ These are the libraries and hardware modules used within this project. (Not exha
 - Servo
 
 ## 2. 🗣️ Communication
-The system will use MQTT and REST to communicate between the two gates and the fog device. 
+
+The system will use MQTT and REST to communicate between the two gates and the fog device.
 
 ### 2.1 MQTT Topics
+
 The system will use the following topics to communicate between the two gates and the fog device.
-- `gate_1\status`: This topic is used by the first gate to publish its status. 
+
+- `gate_1\status`: This topic is used by the first gate to publish its status.
     ```json
     {
         "opened": "2025-02-28 21:52:39"
@@ -117,7 +272,7 @@ The system will use the following topics to communicate between the two gates an
         "closed": "2025-02-28 21:52:39"
     }
     ```
-- `gate_2\status`: This topic is used by the second gate to publish its status. 
+- `gate_2\status`: This topic is used by the second gate to publish its status.
     ```json
     {
         "opened": "2025-02-28 21:52:39"
@@ -128,7 +283,8 @@ The system will use the following topics to communicate between the two gates an
         "closed": "2025-02-28 21:52:39"
     }
     ```
-- `verified`: This topic is used to tell the second gate that the person has been verified by the first gate. The message will contain the personnel ID of the person.
+- `verified`: This topic is used to tell the second gate that the person has been verified by the first gate. The
+  message will contain the personnel ID of the person.
     ```json
     {
         "personnel_id": "123456"
@@ -165,54 +321,59 @@ The system will use the following topics to communicate between the two gates an
         "voice": "filename.pkl"
     }
 
-### 2.2 API (TODO: Add more details) 
+### 2.2 API (TODO: Add more details)
+
 The system will use the following API to get the embeddings of the personnel.
+
 - `GET /embeddings/face/filename.pkl`: This API is used to get the face embeddings of the personnel.
 - `GET /embeddings/voice/filename.pkl`: This API is used to get the voice embeddings of the personnel.
 
-
 ### 2.3 Classes
+
 - Gate: this class will represent the gate and will have the following class
     - EventManager: this class will manage the events that occur at the gate from the MQTT broker
     - StateManager: this class will manage the state of the gate
     - UpdateManager: this class will manage the updates that occur at the gate from the MQTT broker
-- Network: 
+- Network:
     - MQTT:
         - Publisher: this class will publish messages to the MQTT broker
         - Subscriber: this class will subscribe to messages from the MQTT broker
     - API:
         - UpdateDownloader: this class will download the embeddings of the personnel from the API
 - Utils:
-    - LoggerMixin: this class will log the messages to the console 
+    - LoggerMixin: this class will log the messages to the console
 - Enums:
     - GateState: this enum will represent the state of the gate
     - GateType: this enum will represent the type of the gate
 
 ## 3. 🪪 Face Verification
+
 ### 3.1 Main Files
 
--   **debug_mobilefacenet.py**: Script to debug and get details on the TensorFlow and TFLite MobileFaceNet model.
--   **face_profiling.py**: Performance profiling tool for face detection and embedding generation pipelines.
--   **face_verification_mobilefacenet.py**: Main script for face verification using MobileFaceNet TFLite model and MediaPipe for face detection.
--   **motion_detection.py**: Script for motion detection using OpenCV.
+- **debug_mobilefacenet.py**: Script to debug and get details on the TensorFlow and TFLite MobileFaceNet model.
+- **face_profiling.py**: Performance profiling tool for face detection and embedding generation pipelines.
+- **face_verification_mobilefacenet.py**: Main script for face verification using MobileFaceNet TFLite model and
+  MediaPipe for face detection.
+- **motion_detection.py**: Script for motion detection using OpenCV.
 
 ### 3.2 Models and Data
 
--   **mobilefacenet_tf.pb**: MobileFaceNet model in TensorFlow PB format.
--   **mobilefacenet.tflite**: MobileFaceNet model in TFLite format.
--   **face_embeddings.pkl**: Pickle file containing face embeddings.
--   **vgg16_feature_extractor.h5**: VGG16 model.
--   **vgg16_feature_extractor.tflite**: VGG16 TFLite quantized format.
+- **mobilefacenet_tf.pb**: MobileFaceNet model in TensorFlow PB format.
+- **mobilefacenet.tflite**: MobileFaceNet model in TFLite format.
+- **face_embeddings.pkl**: Pickle file containing face embeddings.
+- **vgg16_feature_extractor.h5**: VGG16 model.
+- **vgg16_feature_extractor.tflite**: VGG16 TFLite quantized format.
 
 ### 3.3 Directories
 
--   **saved_faces/**: Directory to store saved face images.
+- **saved_faces/**: Directory to store saved face images.
 
 ### 3.4 Functionality
 
 #### 3.4.1 Face Verification with MobileFaceNet TFLite and MediaPipe
 
-This section details how the face verification system works using the `face_verification_mobilefacenet.py` script. It uses the MobileFaceNet TFLite model for generating face embeddings and MediaPipe for face detection.
+This section details how the face verification system works using the `face_verification_mobilefacenet.py` script. It
+uses the MobileFaceNet TFLite model for generating face embeddings and MediaPipe for face detection.
 
 #### 3.4.2 Configuration
 
@@ -286,15 +447,17 @@ The system uses a flexible database structure for storing face embeddings:
 ```
 
 #### 3.4.7 Key features:
+
 - **Multiple Embeddings**: Stores multiple embeddings per person for better recognition
 - **Persistent Storage**: Saves embeddings to disk using pickle serialization
 - **Database Management**:
-  - `save_face_embeddings()`: Merges new embeddings with existing database
-  - `load_face_embeddings()`: Loads embeddings from disk with error handling
-  - `build_embedding_from_folder()`: Builds database from folder structure
-  - `build_embedding_from_images()`: Builds database from image list
+    - `save_face_embeddings()`: Merges new embeddings with existing database
+    - `load_face_embeddings()`: Loads embeddings from disk with error handling
+    - `build_embedding_from_folder()`: Builds database from folder structure
+    - `build_embedding_from_images()`: Builds database from image list
 
 Folder structure for training data:
+
 ```
 faces/
 ├── person1_name/
@@ -308,48 +471,53 @@ faces/
 
 #### 3.4.8 Key Functions:
 
--   `detect_face()`: Detects faces in a frame using MediaPipe.
--   `extract_face()`: Extracts a face from a frame with padding.
--   `preprocess_face()`: Preprocesses the face image for the MobileFaceNet model.
--   `get_face_embedding()`: Generates the face embedding vector using the MobileFaceNet TFLite model.
--   `build_embeddings_from_folder()`: Builds a database of face embeddings from images in a folder.
--   `verify_face()`: Verifies a face against the embeddings database.
--   `wait_for_face_and_verify()`: Waits for a face to appear and then verifies it against the database.
+- `detect_face()`: Detects faces in a frame using MediaPipe.
+- `extract_face()`: Extracts a face from a frame with padding.
+- `preprocess_face()`: Preprocesses the face image for the MobileFaceNet model.
+- `get_face_embedding()`: Generates the face embedding vector using the MobileFaceNet TFLite model.
+- `build_embeddings_from_folder()`: Builds a database of face embeddings from images in a folder.
+- `verify_face()`: Verifies a face against the embeddings database.
+- `wait_for_face_and_verify()`: Waits for a face to appear and then verifies it against the database.
 
 #### 3.4.9 Profiling
-The `face_profiling.py` script is designed to profile the performance of different face detection and embedding methods. It measures the time taken for each step in the face processing pipeline and collects system metrics such as CPU usage, memory usage, and I/O operations.
+
+The `face_profiling.py` script is designed to profile the performance of different face detection and embedding methods.
+It measures the time taken for each step in the face processing pipeline and collects system metrics such as CPU usage,
+memory usage, and I/O operations.
 
 ##### 3.4.9.1 Workflow
 
-1.  **Initialization**: Initializes the FaceProfiler with specified models and configurations.
-2.  **Image Loading**: Loads an image for processing.
-3.  **Face Detection**: Detects faces in the image using either MediaPipe or OpenCV.
-4.  **Face Extraction**: Extracts the detected face from the image.
-5.  **Preprocessing**: Preprocesses the extracted face to match the input requirements of the chosen embedding model.
-6.  **Embedding Generation**: Generates a face embedding vector using the specified model (MobileFaceNet, VGG16, etc.).
-7.  **Metrics Collection**: Collects timing information for each step and system metrics such as CPU usage, memory usage, and I/O operations.
-8.  **Reporting**: Prints a detailed report of the profiling results, including timing information and system metrics.
+1. **Initialization**: Initializes the FaceProfiler with specified models and configurations.
+2. **Image Loading**: Loads an image for processing.
+3. **Face Detection**: Detects faces in the image using either MediaPipe or OpenCV.
+4. **Face Extraction**: Extracts the detected face from the image.
+5. **Preprocessing**: Preprocesses the extracted face to match the input requirements of the chosen embedding model.
+6. **Embedding Generation**: Generates a face embedding vector using the specified model (MobileFaceNet, VGG16, etc.).
+7. **Metrics Collection**: Collects timing information for each step and system metrics such as CPU usage, memory usage,
+   and I/O operations.
+8. **Reporting**: Prints a detailed report of the profiling results, including timing information and system metrics.
 
 ##### 3.4.9.2 Key Components
 
--   `FaceProfiler` class: Manages the face detection, extraction, preprocessing, and embedding generation processes.
--   `profile_pipeline()` function: Executes the face processing pipeline and collects timing and system metrics.
--   `print_profiling_results()` function: Prints a detailed report of the profiling results.
+- `FaceProfiler` class: Manages the face detection, extraction, preprocessing, and embedding generation processes.
+- `profile_pipeline()` function: Executes the face processing pipeline and collects timing and system metrics.
+- `print_profiling_results()` function: Prints a detailed report of the profiling results.
 
 ##### 3.4.9.3 Results
 
 The following results were obtained when performing profiling on a Raspberry Pi 5.
 
 **Model Loading**
-| Model              | Model Size (MB) | Memory Usage (MB) | CPU Usage (%) | Load Time (seconds) |
+| Model | Model Size (MB) | Memory Usage (MB) | CPU Usage (%) | Load Time (seconds) |
 | ------------------ | --------------- | ----------------- | ------------- | ------------------- |
-| MobileFaceNet (TFLite) | 5.0             | 17.5              | 98.9          | 0.01                |
-| VGG (TFLite)       | 128.2           | 283.5             | 100.9         | 0.38                |
-| MobileFaceNet (PB)   | 5.2             | 52.73             | 99.9          | 1.48                |
-| VGG (Keras)        | 512.2           | 585.83            | 91.7          | 5.4                 |
+| MobileFaceNet (TFLite) | 5.0 | 17.5 | 98.9 | 0.01 |
+| VGG (TFLite)       | 128.2 | 283.5 | 100.9 | 0.38 |
+| MobileFaceNet (PB)   | 5.2 | 52.73 | 99.9 | 1.48 |
+| VGG (Keras)        | 512.2 | 585.83 | 91.7 | 5.4 |
 
 **Pipeline**
-| Framework | Model | Detection (seconds) | Extraction (seconds) | Preprocessing (seconds) | Embedding (seconds) | Total Pipeline Time (seconds) | Function Calls | Primitive Calls |
+| Framework | Model | Detection (seconds) | Extraction (seconds) | Preprocessing (seconds) | Embedding (seconds) | Total
+Pipeline Time (seconds) | Function Calls | Primitive Calls |
 |---|---|---|---|---|---|---|---|---|
 | MediaPipe | MobileFaceNet (TFLite) | 0.0207 | 0 | 0.0038 | 0.0246 | 0.049 | 8003 | 7768 |
 | MediaPipe | MobileFaceNet (PB) | 0.0213 | 0 | 0.0039 | 0.0357 | 0.0609 | 8604 | 8203 |
@@ -362,11 +530,15 @@ The following results were obtained when performing profiling on a Raspberry Pi 
 
 Based on the profiling results:
 
-*   **Model Loading:** VGG (Keras) has the largest model size and load time, while MobileFaceNet (TFLite) is the smallest and fastest to load.
-*   **Pipeline Performance:** MobileFaceNet (TFLite) with MediaPipe offers the fastest total pipeline time. VGG (Keras) is significantly slower, especially in the embedding generation step.
-*   **Framework Impact:** MediaPipe generally results in faster face detection compared to OpenCV.
-*   **Model Format Matters:** TFLite models are generally faster than their TensorFlow Frozen Graph (PB) or Keras counterparts.
-*   **Function Calls:** VGG (Keras) has a significantly higher number of function calls, indicating greater complexity or overhead.
+* **Model Loading:** VGG (Keras) has the largest model size and load time, while MobileFaceNet (TFLite) is the smallest
+  and fastest to load.
+* **Pipeline Performance:** MobileFaceNet (TFLite) with MediaPipe offers the fastest total pipeline time. VGG (Keras) is
+  significantly slower, especially in the embedding generation step.
+* **Framework Impact:** MediaPipe generally results in faster face detection compared to OpenCV.
+* **Model Format Matters:** TFLite models are generally faster than their TensorFlow Frozen Graph (PB) or Keras
+  counterparts.
+* **Function Calls:** VGG (Keras) has a significantly higher number of function calls, indicating greater complexity or
+  overhead.
 
 ## 4. 🚶‍♂️‍➡️ Motion Detection
 
@@ -374,60 +546,80 @@ The `motion_detection.py` script implements motion detection using OpenCV.
 
 ### 4.1 Workflow:
 
-1.  **Frame Capture**: Captures video frames from a specified camera.
-2.  **Preprocessing**: Converts each frame to grayscale and applies a Gaussian blur to reduce noise.
-3.  **Motion Detection**: Compares the current frame with the previous frame to identify differences. Thresholding is applied to highlight significant changes.
-4.  **Contour Detection**: Identifies contours in the thresholded image, representing areas of motion.
-5.  **Motion Indication**: If the area of any contour exceeds a predefined minimum area, motion is considered detected, and a message is printed.
+1. **Frame Capture**: Captures video frames from a specified camera.
+2. **Preprocessing**: Converts each frame to grayscale and applies a Gaussian blur to reduce noise.
+3. **Motion Detection**: Compares the current frame with the previous frame to identify differences. Thresholding is
+   applied to highlight significant changes.
+4. **Contour Detection**: Identifies contours in the thresholded image, representing areas of motion.
+5. **Motion Indication**: If the area of any contour exceeds a predefined minimum area, motion is considered detected,
+   and a message is printed.
 
 ### 4.2 Key Parameters:
 
--   `camera_id`: ID of the camera to use.
--   `resolution`: Resolution of the captured video.
--   `threshold`: Threshold value for motion detection.
--   `min_area`: Minimum area of a contour to be considered motion.
--   `blur_size`: Size of the Gaussian blur kernel.
--   `check_interval`: Time interval between motion checks.
+- `camera_id`: ID of the camera to use.
+- `resolution`: Resolution of the captured video.
+- `threshold`: Threshold value for motion detection.
+- `min_area`: Minimum area of a contour to be considered motion.
+- `blur_size`: Size of the Gaussian blur kernel.
+- `check_interval`: Time interval between motion checks.
 
 ## 5. 🧑‍🤝‍🧑 Human detection
-Within the airlock itself, we should only allow 1 person in at a single moment. Hence, we have to detect if multiple people are within it. 
 
-There are multiple ways of doing so: we can use opencv natively and code out a human detection. This is simple and extremely lightweight, but highly inefficient due to how insufficiently trained it is.
+Within the airlock itself, we should only allow 1 person in at a single moment. Hence, we have to detect if multiple
+people are within it.
+
+There are multiple ways of doing so: we can use opencv natively and code out a human detection. This is simple and
+extremely lightweight, but highly inefficient due to how insufficiently trained it is.
 
 ![photo_2025-03-25_02-24-36](https://github.com/user-attachments/assets/60ce28ef-7a29-418d-9d54-2f971941e4ff)
 
 *OpenCV incorrectly detecting humans*
 
-Another method of approaching this is to use Tensorflow Lite human detection system built on top of YOLOv5 tflite model. Utilizing both Tensorflow lite and YOLOv5 models, this human detection system is much more effective in accruately detecting people, especially when there is multiple people (i.e. detecting a city square). Although, a stronger hardware would be required.
+Another method of approaching this is to use Tensorflow Lite human detection system built on top of YOLOv5 tflite model.
+Utilizing both Tensorflow lite and YOLOv5 models, this human detection system is much more effective in accruately
+detecting people, especially when there is multiple people (i.e. detecting a city square). Although, a stronger hardware
+would be required.
 
 ![Screenshot 2025-03-25 022614](https://github.com/user-attachments/assets/581d26d3-ecfb-495b-86bd-ebff2fd88918)
 
 *YOLOv5 tflite detecting humans more efficiently in a crowded square*
 
-
 ## 6. 🔊 Voice Authentication
-As voice authentication was a vital part of the authentication process, including both the voice password and the voice signature analysis, the system was broken down into two parts accordingly.
+
+As voice authentication was a vital part of the authentication process, including both the voice password and the voice
+signature analysis, the system was broken down into two parts accordingly.
 
 ### 6.1 1️⃣ Starting Premise
-The edge devices would be connected through LAN cables to the internet, providing secured access through the premise's internet and firewall. 
 
-The voice authentication process occurs **after** confirming the identity of the personnel, meaning there is no need to determine their identity beforehand.
+The edge devices would be connected through LAN cables to the internet, providing secured access through the premise's
+internet and firewall.
 
-Voice enrollment is performed on the fog device, while authentication is carried out on the edge. Thus, updates to personnel’s unique voice passwords are transferred from the fog device to the edge device.
+The voice authentication process occurs **after** confirming the identity of the personnel, meaning there is no need to
+determine their identity beforehand.
+
+Voice enrollment is performed on the fog device, while authentication is carried out on the edge. Thus, updates to
+personnel’s unique voice passwords are transferred from the fog device to the edge device.
 
 Ensuring the **security** of voice authentication during these updates is **critical**.
 
 ### 6.2 ⚙️ Approach to Premise
-A **simple solution** was chosen to match voice signatures and passwords **without** relying on deep learning models (which can be heavyweight and have costlier inference). 
 
-The approach involves matching voice signatures by calculating the **linear normalized distance** of the MFCC features between the enrolled and authentication voice samples. This allows developers to **customize a threshold value** based on testing to separate voice signatures.
+A **simple solution** was chosen to match voice signatures and passwords **without** relying on deep learning models (
+which can be heavyweight and have costlier inference).
 
-A **speech recognition library** was used to capture the voice passwords. Both speed ⚡ and accuracy 🎯 were crucial, leading to testing (below) to identify the most suitable library.
+The approach involves matching voice signatures by calculating the **linear normalized distance** of the MFCC features
+between the enrolled and authentication voice samples. This allows developers to **customize a threshold value** based
+on testing to separate voice signatures.
+
+A **speech recognition library** was used to capture the voice passwords. Both speed ⚡ and accuracy 🎯 were crucial,
+leading to testing (below) to identify the most suitable library.
 
 After recognition, **voice passwords are hashed and serialized** for secure transmission to the edge device.
 
 ### 6.3 🧪 Testing
+
 🛠️ Five speech recognition models were tested:
+
 - Sphinx
 - Google Speech Recognition
 - Wit.ai
@@ -440,69 +632,90 @@ Since authentication involves waiting, minimizing **wait times** was a priority.
 ![image](https://github.com/user-attachments/assets/e269a903-95e3-4ff1-92c3-15adabe6ca51)
 ![image](https://github.com/user-attachments/assets/6956f071-2bee-4851-bc30-015ae7e7cbdd)
 
-
 ### 6.4 🚨 Problems Encountered
-🛠️ Due to differences in **hardware** on edge and fog devices, the team suspected a **significant amount of noise** was picked up by the edge device. 
 
-**Fog devices (often laptops) apply noise reduction automatically**, leading to cleaner recordings. Additionally, the differences in hardware (I.E. the microphone) might affect the output. 
+🛠️ Due to differences in **hardware** on edge and fog devices, the team suspected a **significant amount of noise** was
+picked up by the edge device.
+
+**Fog devices (often laptops) apply noise reduction automatically**, leading to cleaner recordings. Additionally, the
+differences in hardware (I.E. the microphone) might affect the output.
 
 Edge devices, however, recorded **noisier audio**, causing **failed authentication attempts**.
 
 ### 6.5 🛠️ Solutions Employed
+
 The team **split development** into two alternate paths:
 
 1️⃣ **Lightweight approach** (MFCC features comparison)
-   - **Noise reduction** using the `noisereduce` library when recording on the edge device.
-   - A **first authentication pass** using the noise-reduced WAV file to extract MFCC features.
-   - If this **fails**, a **second authentication pass** applies **noise-reduction on MFCC features** instead.
+
+- **Noise reduction** using the `noisereduce` library when recording on the edge device.
+- A **first authentication pass** using the noise-reduced WAV file to extract MFCC features.
+- If this **fails**, a **second authentication pass** applies **noise-reduction on MFCC features** instead.
 
 2️⃣ **Noise-reduction profile development**
-   - **Recorded samples** from fog and edge devices were analyzed.
-   - **Signal-to-noise ratio** was calculated for each feature.
-   - Features were adjusted by a **scale factor** to improve authentication accuracy.
+
+- **Recorded samples** from fog and edge devices were analyzed.
+- **Signal-to-noise ratio** was calculated for each feature.
+- Features were adjusted by a **scale factor** to improve authentication accuracy.
 
 📊 **Example testing results**:
 ![image](https://github.com/user-attachments/assets/9214537e-35ec-4c56-b9db-9228a104f752)
 
 📌 **Observations**:
+
 - ✅ **Same individual authentication**: After denoising, embedding distance **reduced by 57 points** (125.39 → 67.61).
 - ❌ **Different individual authentication**: Embedding distance **only reduced by 10 points** (104.06 → 93.69).
 
-This **simpler algorithm** selectively **reduces embeddings using noise estimates**, enabling **more reliable authentication** across **Fog and Edge devices** without deep learning.
+This **simpler algorithm** selectively **reduces embeddings using noise estimates**, enabling **more reliable
+authentication** across **Fog and Edge devices** without deep learning.
 
 ### 6.6 🧠 Alternative Deep Learning Approach
+
 **Deep-learning-based method**:
+
 - Utilized `resemble-ai/Resemblyzer` ([GitHub](https://github.com/resemble-ai/Resemblyzer))
 - Generates a **256-value summary vector** per audio file.
 
 **Comparison**:
-| Approach | Features Used | Speed | Storage  | Noise Handling  |
+| Approach | Features Used | Speed | Storage | Noise Handling |
 |----------|--------------|---------|----------|----------------|
 | **Lightweight (MFCC)** | 20 values | ✅ Fast | ✅ Low | ⚠️ Moderate |
 | **Deep Learning (Resemblyzer)** | 256 values | ❌ Slower | ❌ High | ✅ Strong |
 
 🔍 The **deep-learning approach** accounts **better** for:
+
 - **Different recording hardware**
 - **Environmental noise**
-  
+
 However, it has **higher inference time** and **storage costs**.
 
 ---
-### 6.7 ✅ **Final Decision:**  
-For **lightweight** and **efficient** authentication across devices, **the MFCC-based approach was prioritized**. Deep learning remains an **alternative** for future enhancements.
+
+### 6.7 ✅ **Final Decision:**
+
+For **lightweight** and **efficient** authentication across devices, **the MFCC-based approach was prioritized**. Deep
+learning remains an **alternative** for future enhancements.
 
 🚀 **Next Steps:**
+
 - Optimize **threshold calibration** for different noise profiles.
 - Improve **real-time denoising** on edge devices.
 - Evaluate **hybrid approaches** for further robustness.
 
 ---
 
-### 6.8 🎉 **Conclusion:**  
-Through **adaptive noise reduction** and **threshold tuning**, a **lightweight, scalable** voice authentication system was implemented—ensuring **fast, reliable** authentication without **heavy AI dependency**.
+### 6.8 🎉 **Conclusion:**
+
+Through **adaptive noise reduction** and **threshold tuning**, a **lightweight, scalable** voice authentication system
+was implemented—ensuring **fast, reliable** authentication without **heavy AI dependency**.
 
 ## 7. 📌 State Diagram
-The state table and state diagram are shown below. The state diagram is a visual representation of the state table. The state table shows the states of the system, the conditions that trigger the transitions between states, and the actions to take when transitioning between states. The state diagram shows the states of the system as nodes and the transitions between states as edges. The state diagram is a useful tool for understanding the behavior of the system and for designing the system.
+
+The state table and state diagram are shown below. The state diagram is a visual representation of the state table. The
+state table shows the states of the system, the conditions that trigger the transitions between states, and the actions
+to take when transitioning between states. The state diagram shows the states of the system as nodes and the transitions
+between states as edges. The state diagram is a useful tool for understanding the behavior of the system and for
+designing the system.
 
 ```mermaid
 stateDiagram
@@ -524,20 +737,19 @@ stateDiagram
     9 --> 6: Send alert and picture to fog
 ```
 
-
-| State ID | Gate 1 Status | Mantrap Status | Gate 2 Status | Condition | Preceding States | Next States | Action to take |
-|----------|--------------|----------------|---------------|-----------|------------------|-------------|----------------|
-| 1 | Close | Idle | Close | Default, Face not verified | *, 2, 5, 11 | 2 | Wait for personnel to approach |
-| 2 | Face | Idle | Close | Motion detected (Cam 1) | 1 | 1, 3 | Enable facial verification (Cam 1) |
-| 3 | Open | Idle | Close | Face verified | 2 | 4 | Wait for personnel to enter mantrap |
-| 4 | Close | Scan | Close | Ultrasonic detected personnel entered | 3 | 7, 8 | Enable human detection scan (Cam 2) |
-| 5 | Open | Checked | Close | Security guard came and checked | 6 | 1 | Wait for all personnel to leave |
-| 6 | Close | Alert | Close | Unauthorized access in mantrap | 7 | 5 | Alert (incl buzzer and led) and wait for security guard |
-| 7 | Close | Multi | Close | Multiple personnel detected in mantrap | 4 | 6 | Send alert and picture to fog |
-| 8 | Close | Idle | Face | Mantrap only one personnel and received the personnel ID | 4 | 9, 10 | Enable facial verification (Cam 3) |
-| 9 | Close | Idle | Diff | Face or voice not verified X number of times | 8 | 6 | Send alert and picture to fog |
-| 10 | Close | Idle | Voice | Face verified | 8 | 9, 11 | Enable voice verification (Cam 3) |
-| 11 | Close | Idle | Open | Voice verified | 10 | 1 | Wait for personnel to exit the mantrap |
+| State ID | Gate 1 Status | Mantrap Status | Gate 2 Status | Condition                                                | Preceding States | Next States | Action to take                                          |
+|----------|---------------|----------------|---------------|----------------------------------------------------------|------------------|-------------|---------------------------------------------------------|
+| 1        | Close         | Idle           | Close         | Default, Face not verified                               | *, 2, 5, 11      | 2           | Wait for personnel to approach                          |
+| 2        | Face          | Idle           | Close         | Motion detected (Cam 1)                                  | 1                | 1, 3        | Enable facial verification (Cam 1)                      |
+| 3        | Open          | Idle           | Close         | Face verified                                            | 2                | 4           | Wait for personnel to enter mantrap                     |
+| 4        | Close         | Scan           | Close         | Ultrasonic detected personnel entered                    | 3                | 7, 8        | Enable human detection scan (Cam 2)                     |
+| 5        | Open          | Checked        | Close         | Security guard came and checked                          | 6                | 1           | Wait for all personnel to leave                         |
+| 6        | Close         | Alert          | Close         | Unauthorized access in mantrap                           | 7                | 5           | Alert (incl buzzer and led) and wait for security guard |
+| 7        | Close         | Multi          | Close         | Multiple personnel detected in mantrap                   | 4                | 6           | Send alert and picture to fog                           |
+| 8        | Close         | Idle           | Face          | Mantrap only one personnel and received the personnel ID | 4                | 9, 10       | Enable facial verification (Cam 3)                      |
+| 9        | Close         | Idle           | Diff          | Face or voice not verified X number of times             | 8                | 6           | Send alert and picture to fog                           |
+| 10       | Close         | Idle           | Voice         | Face verified                                            | 8                | 9, 11       | Enable voice verification (Cam 3)                       |
+| 11       | Close         | Idle           | Open          | Voice verified                                           | 10               | 1           | Wait for personnel to exit the mantrap                  |
 
 
 
