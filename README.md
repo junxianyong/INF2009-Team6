@@ -26,7 +26,10 @@ the system.
 
 ### Fog Device (PC)
 
-1. Install Docker, Python 3.12 and NodeJS on the fog device.
+1. Ensure that the following software is installed.
+   - [Python 3.12.5 or later](https://www.python.org/downloads/release/python-3125/)
+   - [Node v20.14.0 or later](https://nodejs.org/en)
+   - [PostgreSQL 17.2 or later](https://www.postgresql.org/download/)
 
 2. Run the MQTT broker container:
    ```bash
@@ -52,8 +55,11 @@ the system.
    -e BACKEND_SERVER=host.docker.internal:5000 \
    limcheehean/nginx-selfsigned-ssl:latest
    ```
-
-4. Create environment configuration files:
+4. Import database schema and data.
+   ```bash
+   psql -h localhost -u your_db_username -P your_db_password < fog/web_server/utils/db.sql 
+   ```
+5. Create environment configuration files:
 
    #### For web_server (.env.local)
    Create this file in the fog/web_server directory with the following structure:
@@ -98,7 +104,7 @@ the system.
    NEXT_PUBLIC_API_URL=/api
    ```
 
-5. Install backend dependencies:
+6. Install backend dependencies:
    ```bash
    cd fog/web_server
    
@@ -111,7 +117,7 @@ the system.
    pip install -r requirements.txt
    ```
 
-6. Start the web server:
+7. Start the web server:
    ```bash
    set FLASK_ENV=development    # For Windows
    export FLASK_ENV=development # For macOS/Linux
@@ -119,13 +125,13 @@ the system.
    python app.py
    ```
 
-7. Install frontend dependencies:
+8. Install frontend dependencies:
    ```bash
    cd fog/web_client
    npm install
    ```
 
-8. Start the web client:
+9. Start the web client:
    ```bash
    npm run dev
    ```
