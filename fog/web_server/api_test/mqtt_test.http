@@ -21,6 +21,15 @@ Content-Type: application/json
   "personnel_id": "admin"
 }
 
+### Update status
+PUB state
+Host: mqtt://localhost:1883
+Content-Type: application/json
+
+{
+  "state": "ALERT_ACTIVE"
+}
+
 
 ### Send mqtt alert
 PUB alert

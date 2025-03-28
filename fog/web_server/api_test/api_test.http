@@ -91,6 +91,26 @@ Content-Type: image/png
 
 < ./face.png
 --WebAppBoundary
+Content-Disposition: form-data; name="face_0"; filename="face.png"
+Content-Type: image/png
+
+< ./face.png
+--WebAppBoundary
+Content-Disposition: form-data; name="face_1"; filename="face.png"
+Content-Type: image/png
+
+< ./face.png
+--WebAppBoundary
+Content-Disposition: form-data; name="face_2"; filename="face.png"
+Content-Type: image/png
+
+< ./face.png
+--WebAppBoundary
+Content-Disposition: form-data; name="face_3"; filename="face.png"
+Content-Type: image/png
+
+< ./face.png
+--WebAppBoundary
 Content-Disposition: form-data; name="voice"; filename="voice.wav"
 Content-Type: audio/wav
 
