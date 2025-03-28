@@ -18,11 +18,18 @@ the system.
 
 ![Static Badge](https://img.shields.io/badge/Demo_Video_Link-Youtube-red?style=for-the-badge&logo=youtube&link=https%3A%2F%2Fwww.canva.com%2Fdesign%2FDAGcoSWfQ7E%2F206BhRh_AZRSofwBzGcc8g%2Fview%3Futm_content%3DDAGcoSWfQ7E%26utm_campaign%3Ddesignshare%26utm_medium%3Dlink2%26utm_source%3Duniquelinks%26utlId%3Dhceeff75b2a)
 
+![Static Badge](https://img.shields.io/badge/User%20Guide-GitHub-green?style=for-the-badge&logo=github&link=fog%2Fuser_guide)
+
+![Static Badge](https://img.shields.io/badge/API%20Reference-GitHub-green?style=for-the-badge&logo=github&link=fog%2Fapi_reference)
+
 ## Setup Instructions
 
 ### Fog Device (PC)
 
-1. Install Docker on the fog device
+1. Ensure that the following software is installed.
+   - [Python 3.12.5 or later](https://www.python.org/downloads/release/python-3125/)
+   - [Node v20.14.0 or later](https://nodejs.org/en)
+   - [PostgreSQL 17.2 or later](https://www.postgresql.org/download/)
 
 2. Run the MQTT broker container:
    ```bash
@@ -32,11 +39,30 @@ the system.
    -e MOSQUITTO_PASSWORD=your_mqtt_password \
    ekiost/mqtt-broker:latest
    ```
+   
+3. Run the Nginx container (optional):
 
-3. Create environment configuration files:
+   This container provides an SSL connection with a self-signed certificate to the browser and routes traffic to the NextJS web client and Flask web server.
+   This is required if you wish to access the web portal from a remote machine, as most browsers restrict access to device camera and microphone
+   (for biometrics enrollment) for non-localhost HTTP connections.\
+   `host.docker.internal` will point to the host where the Docker runtime is on, replace the values accordingly if the NextJS and Flask server are running
+   on other machines.
+
+    ```bash
+   docker run -d --name nginx-selfsigned-ssl \
+   -p 80:80 -p 443:443 \
+   -e FRONTEND_SERVER=host.docker.internal:3000 \
+   -e BACKEND_SERVER=host.docker.internal:5000 \
+   limcheehean/nginx-selfsigned-ssl:latest
+   ```
+4. Import database schema and data.
+   ```bash
+   psql -h localhost -u your_db_username -P your_db_password < fog/web_server/utils/db.sql 
+   ```
+5. Create environment configuration files:
 
    #### For web_server (.env.local)
-   Create this file in the web_server directory with the following structure:
+   Create this file in the fog/web_server directory with the following structure:
    ```
    SECRET_KEY=your_secret_key
    SESSION_TIMEOUT=1200
@@ -68,29 +94,44 @@ the system.
    ```
 
    #### For web_client (.env.local)
-   Create this file in the web_client directory:
+   Create this file in the fog/web_client directory:\
+   _For development on localhost only_
    ```
    NEXT_PUBLIC_API_URL=http://localhost:5000/api
    ```
+   _For access via an Nginx proxy (as described in step 3)_
+   ```
+   NEXT_PUBLIC_API_URL=/api
+   ```
 
-4. Install backend dependencies:
+6. Install backend dependencies:
    ```bash
-   cd web_server
+   cd fog/web_server
+   
+   pip install virtualenv
+   python -m venv .venv
+   
+   .venv\Scripts\activate     # For Windows
+   source .venv/bin/activate  # For macOS/Linux
+   
    pip install -r requirements.txt
    ```
 
-5. Start the web server:
+7. Start the web server:
    ```bash
+   set FLASK_ENV=development    # For Windows
+   export FLASK_ENV=development # For macOS/Linux
+   
    python app.py
    ```
 
-6. Install frontend dependencies:
+8. Install frontend dependencies:
    ```bash
-   cd web_client
+   cd fog/web_client
    npm install
    ```
 
-7. Start the web client:
+9. Start the web client:
    ```bash
    npm run dev
    ```
