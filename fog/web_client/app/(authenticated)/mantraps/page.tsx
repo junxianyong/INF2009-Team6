@@ -2,7 +2,7 @@
 
 import {Button, Form, Input, message, Popconfirm, Space, Table, Typography} from "antd";
 import {useForm} from "antd/lib/form/Form";
-import {commandDoor, deleteMantrap, getMantraps} from "@/app/lib/api";
+import {commandDoor, deleteMantrap, getData, getMantraps} from "@/app/lib/api";
 import {useEffect, useState} from "react";
 import {GetMantraps} from "@/app/lib/types";
 import {ExclamationCircleFilled} from "@ant-design/icons";
@@ -26,6 +26,10 @@ export default function Mantraps() {
         const interval = setInterval(loadMantraps, 5000); // Fetch every 5 seconds
         return () => clearInterval(interval); // Cleanup interval on unmount
     }, []);
+
+    useEffect(() => {
+        getData("user").then(user => setIsAdmin(user.role === "admin"))
+    }, [])
 
 
     const clickSearch = () => {
