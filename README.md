@@ -1,14 +1,8 @@
-# **INF2009-Team6**: Dual-Gate Access Authentication with 2-Factor Authentication (Voice + Camera)
+# **INF2009-Team6**: Dual-Gate Access Authentication with Multi-Factor Authentication (Face + Voice Passphrase & Signature)
 
 ## Project Description
 
-This project is a dual-gate access authentication system that uses 2-factor authentication. The system is composed of
-two gates. The first camera on first gate is the face recognition gate, which uses the camera to capture the face of the
-person trying to enter. The second camera on first gate will prevent tailgating. The second gate is the face and voice
-recognition gate, which uses the camera to capture the face of the person trying to enter and the microphone to capture
-the voice of the person trying to enter. The system will only allow access if the person is recognized by both gates.
-The system will also have a web interface that will allow the user to add new users, delete users, and view the logs of
-the system.
+This project is a dual-gate access authentication system that uses multi-factor authentication. The system is composed of two gates. The first camera on the first gate is the face recognition gate, which uses the camera to capture the face of the person trying to enter. The second camera on the first gate will prevent tailgating. The second gate is the face and voice recognition gate, which uses the camera to capture the face of the person trying to enter and the microphone to capture both the voice passphrase and voice signature of the person. The system will only allow access if the person is recognized by all required factors across both gates. The system will also have a web interface that will allow the user to add new users, delete users, and view the logs of the system. To achieve low-latency, real-time decision-making, the system processes biometric data directly on edge devices. This edge-based architecture not only reduces latency but also enhances privacy by keeping sensitive biometric data local to the devices on-premise.
 
 ![Frame 1 (3)](https://github.com/user-attachments/assets/4ae08189-72d1-4743-97dc-dbc8322823b2)
 
@@ -24,6 +18,53 @@ the system.
 ![Static Badge](https://img.shields.io/badge/API%20Reference-GitHub-green?style=for-the-badge&logo=github&link=fog%2Fapi_reference)[
 API Reference](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/api_reference.md)
 
+## Task / Work Allocation
+
+The project tasks have been divided among team members.
+
+- **Ernest**
+	- **Voice Signature and Passphrase Authentication**:
+	  - Develop the voice signature matching algorithm using MFCC features.
+	  - Implement voice passphrase recognition using Google Speech Recognition.
+	  - Optimize noise reduction techniques for edge devices using the `noisereduce` library.
+	  - Test and calibrate thresholds for voice authentication accuracy.
+
+- **Jun Xian**
+	- **Motion Detection**:
+	  - Implement motion detection using OpenCV for detecting personnel approaching the gate.
+	  - Optimize motion detection parameters (e.g., resolution, threshold, and frame rate).
+	- **Face Authentication**:
+	  - Develop face recognition pipeline using MobileFaceNet and MediaPipe.
+	  - Implement enhanced image preprocessing techniques (e.g., white balance correction, gamma correction).
+	  - Build the face embeddings database for personnel verification.
+	- **Profiling for Face Authentication**:
+	  - Profile the performance of face detection and embedding generation pipelines.
+	  - Measure system metrics such as CPU usage, memory usage, and processing time for face authentication.
+
+- **Benjamin**
+	- **Tailgating Overhead Multi-Personnel Detection**:
+	  - Implement human detection using YOLOv5 TFLite models.
+	  - Test and evaluate the system for accuracy.
+
+- **Choon Keat**
+	- **Gate Integration and Sensors**:
+	  - Integrate hardware components such as ultrasonic sensors, buzzers, and servos with the system.
+	  - Develop drivers for hardware components and ensure compatibility with Raspberry Pi.
+	  - Implement gate state management and transitions based on sensor inputs.
+	- **MQTT Communication**:
+	  - Set up MQTT topics for communication between gates and the fog device.
+	  - Implement MQTT publishers and subscribers for real-time data exchange.
+
+- **Chee Hean**
+    - **Fog Dashboard Integration**:
+        - Develop the web interface for managing users, logs, and system configurations.
+        - Implement API endpoints for communication between the fog device and edge devices.
+        - Ensure secure data transmission between the fog dashboard and edge devices.
+	- **MQTT Communication**:
+	  - Coordinate MQTT integration with the fog device for real-time updates and alerts.
+	- **Profiling for Voice Authentication**:
+	  - Profile the performance of voice authentication solutions.
+	  - Measure system metrics such as memory usage, bandwidth and processing time for voice authentication.
 
 ## Setup Instructions
 
@@ -257,19 +298,7 @@ driver_config = {
 
 ### Face Recognition Models
 
-Multiple face recognition models are supported. Additional pre-trained models can be downloaded
-from [this link](https://drive.google.com/drive/folders/1eMMwx83z2gOaQSYb-AWKj05oLTAsBKvx?usp=drive_link).
-
-### YOLOv5 Models for Human Detection
-
-To obtain YOLOv5 TFLite models for human detection:
-
-```bash
-git clone git@github.com:ultralytics/yolov5.git
-cd yolov5
-pip install -r requirements.txt
-python export.py --weights yolov5n.pt --include tflite
-```
+Additional pre-trained models can be downloaded for the purpose of using the face profiling script from [this link](https://drive.google.com/drive/folders/1eMMwx83z2gOaQSYb-AWKj05oLTAsBKvx?usp=drive_link).
 
 # Documentation
 
