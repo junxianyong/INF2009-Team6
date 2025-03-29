@@ -19,8 +19,11 @@ the system.
 ![Static Badge](https://img.shields.io/badge/Demo_Video_Link-Youtube-red?style=for-the-badge&logo=youtube&link=https%3A%2F%2Fwww.canva.com%2Fdesign%2FDAGcoSWfQ7E%2F206BhRh_AZRSofwBzGcc8g%2Fview%3Futm_content%3DDAGcoSWfQ7E%26utm_campaign%3Ddesignshare%26utm_medium%3Dlink2%26utm_source%3Duniquelinks%26utlId%3Dhceeff75b2a)
 
 ![Static Badge](https://img.shields.io/badge/User%20Guide-GitHub-green?style=for-the-badge&logo=github&link=fog%2Fuser_guide)
+[User Guide]([url](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/user_guide.md))
 
 ![Static Badge](https://img.shields.io/badge/API%20Reference-GitHub-green?style=for-the-badge&logo=github&link=fog%2Fapi_reference)
+[API Reference]([url](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/api_reference.md))
+
 
 ## Setup Instructions
 
