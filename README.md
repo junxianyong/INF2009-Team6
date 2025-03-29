@@ -1,4 +1,5 @@
-# **INF2009-Team6**: Dual-Gate Access Authentication with Multi-Factor Authentication (Face + Voice Passphrase & Signature)
+# **GateGuard**: Dual-Gate Access Authentication with Multi-Factor Authentication (Face + Voice Passphrase & Signature)
+![image](https://github.com/user-attachments/assets/af106a25-3b2a-485b-92f6-908872048ad9)
 
 ## Project Description
 
