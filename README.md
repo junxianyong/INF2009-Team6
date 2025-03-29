@@ -706,7 +706,14 @@ After recognition, **voice passwords are hashed and serialized** for secure tran
 
 Since authentication involves waiting, minimizing **wait times** was a priority.
 ![image](https://github.com/user-attachments/assets/e269a903-95e3-4ff1-92c3-15adabe6ca51)
-![image](https://github.com/user-attachments/assets/6956f071-2bee-4851-bc30-015ae7e7cbdd)
+
+| Method                   | Model Size | RAM Usage  | Network Traffic (Sent/Receive) | Time Taken (S) |
+|--------------------------|------------|------------|---------------------------------|----------------|
+| Google Speech Recognition | -          | 0.5MB      | 222.81KB/9.93KB                  | 0.67           |
+| Houndify                 | -          | 0.0MB      | 229.77KB/15.53KB                  | 2.34           |
+| Sphnix                   | 27.9MB     | 49.31MB    | -                               | 2.54           |
+| Wit.ai                   | -          | 2.84MB     | 612.32KB/12.03KB                 | 5.20            |
+| Whisper                  | 139.0MB    | 511.19MB   | -                               | 7.32           |
 
 ### 6.4 🚨 Problems Encountered
 
