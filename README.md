@@ -836,4 +836,56 @@ stateDiagram
 | 11       | Close         | Idle           | Open          | Voice verified                                           | 10               | 1           | Wait for personnel to exit the mantrap                  |
 
 
+## 8. 🛠️ Justification of Hardware and Tools Selection
 
+### Hardware Selection
+
+1. **Raspberry Pi 4/5**:
+   - **Justification**: Chosen for its balance of affordability, portability, and sufficient computational power to handle edge-based biometric processing tasks. It supports integration with various sensors and peripherals, making it ideal for real-time authentication systems.
+
+2. **Webcam with Built-in Microphone**:
+   - **Justification**: Provides dual functionality for capturing both face and voice data, reducing hardware complexity and cost.
+
+3. **Ultrasonic Sensors**:
+   - **Justification**: Used for detecting personnel entering the mantrap. Ultrasonic sensors are reliable, cost-effective, and capable of detecting objects in real-time with high accuracy.
+
+4. **Servo Motors**:
+   - **Justification**: Used for gate control, suitable for simulating the opening and closing of gates for the purpose of this project.
+
+5. **I2C LCD**:
+   - **Justification**: Provides a simple and low-power display solution for showing system status and alerts, ensuring user-friendliness of the system.
+
+6. **Buzzer**:
+   - **Justification**: Used for audible alerts in case of unauthorized access or system errors. It is a cost-effective and reliable way to notify security personnel.
+
+### Software and Tools Selection
+
+1. **Google Speech Recognition**:
+   - **Justification**: Selected for its high accuracy and low latency in recognizing voice passphrases. It outperformed other tested libraries in terms of speed and reliability.
+
+2. **MobileFaceNet and MediaPipe**:
+   - **Justification**: MobileFaceNet was chosen for its lightweight nature and ability to generate accurate face embeddings. MediaPipe was selected for its efficient and robust face detection capabilities.
+
+3. **YOLOv5 TFLite**:
+   - **Justification**: Chosen for human detection due to its high accuracy in detecting multiple individuals in real-time. The TFLite version ensures compatibility and efficient running on edge devices like Raspberry Pi.
+
+4. **noisereduce Library**:
+   - **Justification**: Used for noise reduction in voice authentication. It is lightweight and effective, making it suitable for edge devices with limited computational resources.
+
+5. **Docker**:
+   - **Justification**: Used for containerizing the fog device components (e.g., MQTT broker, Nginx). Docker ensures consistency across environments and simplifies deployment.
+
+6. **MQTT Protocol**:
+   - **Justification**: Chosen for real-time communication between gates and the fog device. MQTT is lightweight and efficient.
+
+7. **PostgreSQL**:
+   - **Justification**: Selected as the database for its reliability and scalability.
+
+8. **React (Next.js)**:
+   - **Justification**: Used for the web interface due to its modern features, ease of development, and ability to create responsive user interfaces.
+
+9. **Flask**:
+   - **Justification**: Chosen for the backend API due to its simplicity, flexibility, and lightweight nature, which aligns with the project's requirements.
+
+### Efficiency and Suitability
+The selected hardware and tools were chosen to balance efficiency, cost, and suitability for the project's objectives. The lightweight nature of the software ensures compatibility with edge devices, while the hardware components were selected for their reliability and ability to handle real-time biometric processing tasks.
