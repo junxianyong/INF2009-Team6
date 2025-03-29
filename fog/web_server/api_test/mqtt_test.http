@@ -27,7 +27,7 @@ Host: mqtt://localhost:1883
 Content-Type: application/json
 
 {
-  "state": "CHECKING_MANTRAP"
+  "state": "ALERT_ACTIVE"
 }
 
 
