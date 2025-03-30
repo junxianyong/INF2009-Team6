@@ -9,7 +9,7 @@ This project is a dual-gate access authentication system that uses multi-factor 
 
 ## 🔗 Links
 
-![Static Badge](https://img.shields.io/badge/Poster_Link-Canva-blue?style=for-the-badge&logo=canva&link=https%3A%2F%2Fwww.canva.com%2Fdesign%2FDAGcoSWfQ7E%2F206BhRh_AZRSofwBzGcc8g%2Fview%3Futm_content%3DDAGcoSWfQ7E%26utm_campaign%3Ddesignshare%26utm_medium%3Dlink2%26utm_source%3Duniquelinks%26utlId%3Dhceeff75b2a)
+[![Poster](https://img.shields.io/badge/Poster_Link-Canva-blue?style=for-the-badge&logo=canva)](https://www.canva.com/design/DAGcoSWfQ7E/206BhRh_AZRSofwBzGcc8g/view?utm_content=DAGcoSWfQ7E&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=hceeff75b2a)
 
 ![Static Badge](https://img.shields.io/badge/Demo_Video_Link-Youtube-red?style=for-the-badge&logo=youtube&link=https%3A%2F%2Fwww.canva.com%2Fdesign%2FDAGcoSWfQ7E%2F206BhRh_AZRSofwBzGcc8g%2Fview%3Futm_content%3DDAGcoSWfQ7E%26utm_campaign%3Ddesignshare%26utm_medium%3Dlink2%26utm_source%3Duniquelinks%26utlId%3Dhceeff75b2a)
 
