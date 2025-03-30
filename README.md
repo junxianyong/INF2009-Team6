@@ -13,11 +13,9 @@ This project is a dual-gate access authentication system that uses multi-factor 
 
 ![Static Badge](https://img.shields.io/badge/Demo_Video_Link-Youtube-red?style=for-the-badge&logo=youtube&link=https%3A%2F%2Fwww.canva.com%2Fdesign%2FDAGcoSWfQ7E%2F206BhRh_AZRSofwBzGcc8g%2Fview%3Futm_content%3DDAGcoSWfQ7E%26utm_campaign%3Ddesignshare%26utm_medium%3Dlink2%26utm_source%3Duniquelinks%26utlId%3Dhceeff75b2a)
 
-![Static Badge](https://img.shields.io/badge/User%20Guide-GitHub-green?style=for-the-badge&logo=github&link=fog%2Fuser_guide)
-[User Guide](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/user_guide.md)
+[![User Guide](https://img.shields.io/badge/User%20Guide-GitHub-green?style=for-the-badge&logo=github)](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/user_guide.md)
 
-![Static Badge](https://img.shields.io/badge/API%20Reference-GitHub-green?style=for-the-badge&logo=github&link=fog%2Fapi_reference)[
-API Reference](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/api_reference.md)
+[![API Reference](https://img.shields.io/badge/API%20Reference-GitHub-green?style=for-the-badge&logo=github)](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/api_reference.md)
 
 ## Task / Work Allocation
 
@@ -396,12 +394,9 @@ The system will use the following topics to communicate between the two gates an
         "voice": "filename.pkl"
     }
 
-### 2.2 API (TODO: Add more details)
+### 2.2 API
 
-The system will use the following API to get the embeddings of the personnel.
-
-- `GET /embeddings/face/filename.pkl`: This API is used to get the face embeddings of the personnel.
-- `GET /embeddings/voice/filename.pkl`: This API is used to get the voice embeddings of the personnel.
+The API documentation is available [in a separate link](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/api_reference.md).
 
 ### 2.3 Classes
 
