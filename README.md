@@ -396,7 +396,38 @@ The system will use the following topics to communicate between the two gates an
 
 ### 2.2 API
 
-The API documentation is available [in a separate link](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/api_reference.md).
+The detailed API documentation is available [in a separate link](https://github.com/junxianyong/INF2009-Team6/blob/main/fog/api_reference.md).
+
+**Authentication**
+
+* `[POST] /api/auth/login`: Login to the security portal. (Access: Admin, Security)
+* `[GET] /api/auth/logout`: Logout from the security portal. (Access: Admin, Security)
+
+**User**
+
+* `[POST] /api/user/list`: List users in the system. (Access: Admin)
+* `[POST] /api/user/add`: Add new user into the system. (Access: Admin)
+* `[POST] /api/user/update/<user_id>`: Update user details. (Access: Admin)
+* `[DELETE] /api/user/delete/<user_id>`: Delete user from the system. (Access: Admin)
+
+**Mantrap**
+
+* `[POST] /api/mantrap/list`: List mantraps in the system. (Access: Admin, Security)
+* `[POST] /api/mantrap/add`: Add a new mantrap into the system. (Access: Admin)
+* `[POST] /api/mantrap/update/<mantrap_id>`: Update mantrap details. (Access: Admin)
+* `[DELETE] /api/mantrap/delete/<mantrap_id>`: Remove mantrap from the system. (Access: Admin)
+* `[GET] /api/mantrap/<mantrap_id>/<action>`: Manually override gate status of mantrap. (Access: Admin, Security)
+
+**Biometrics**
+
+* `[POST] /api/biometrics/enroll/<user_id>`: Enroll user biometrics. (Access: Admin)
+* `[DELETE] /api/biometrics/delete/<user_id>`: Delete user biometrics. (Access: Admin)
+* `[GET] /api/biometrics/embeddings/<token>/<filename>`: Retrieve latest biometrics embeddings. (Access: Edge Device (Raspberry Pi))
+
+**Access Logs**
+
+* `[POST] /api/log/list`: List system logs. (Access: Admin, Security)
+* `[GET] /api/log/file/<filename>`: Get file (image) associated with log. (Access: Admin, Security)
 
 ### 2.3 Classes
 
