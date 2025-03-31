@@ -673,7 +673,7 @@ people are within it.
 There are multiple ways of doing so: we can use opencv natively and code out a human detection. This is simple and
 extremely lightweight, but highly inefficient due to how insufficiently trained it is.
 
-![photo_2025-03-25_02-24-36](https://github.com/user-attachments/assets/60ce28ef-7a29-418d-9d54-2f971941e4ff)
+![face](https://github.com/user-attachments/assets/256da7df-d44f-44ee-a996-7c689adf2266)
 
 *OpenCV incorrectly detecting humans*
 
